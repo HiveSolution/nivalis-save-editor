@@ -19,10 +19,14 @@ WHAT IT DOES
     and one-click restore
 
 HOW TO USE
-  1. Close Nivalis Nights. The editor will not save while the game is running.
-  2. Run {{BINARY}}. No installation needed.
-  3. Pick a save on the left, make your changes, then click "Save changes".
-  4. Start the game and load that save.
+  1. Run {{BINARY}}. No installation needed.
+  2. Pick a save on the left, make your changes, then click "Save changes".
+  3. Load that save in the game.
+
+The game can stay open while you edit a manual save: save in the game, edit
+that save, then load it again. Don't save over it in the game before you
+load it. The autosave can only be changed once the game is closed, because
+the game keeps overwriting it.
 
 Your saves are found automatically in:
   {{SAVES_DIR}}

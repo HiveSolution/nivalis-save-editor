@@ -37,8 +37,24 @@ async function readBytes(path) {
   return new Uint8Array(await invoke('read_file', { path }));
 }
 
+function isAutosave(entry) {
+  return entry.name.toUpperCase() === 'AUTOSAVE';
+}
+
 function displayName(entry) {
-  return entry.name.toUpperCase() === 'AUTOSAVE' ? 'Autosave' : 'Manual save';
+  return isAutosave(entry) ? 'Autosave' : 'Manual save';
+}
+
+// The running game rewrites the autosave all the time, so that file is off limits until the
+// game is closed. A manual save only changes when the player saves over it, so it may be
+// written; the returned text is the warning for the confirmation dialog ('' = not running).
+async function gameRunningWarning(entry, blocked) {
+  if (!(await invoke('is_game_running'))) return '';
+  if (isAutosave(entry)) {
+    await message(`Close Nivalis Nights first. ${blocked}\n\nManual saves can be changed while the game is running.`, { title: 'Game is running', kind: 'warning' });
+    return null;
+  }
+  return '\n\nNivalis Nights is running. Load this save in the game afterwards to see the changes, and don\'t save over it in the game before you do.';
 }
 
 function formatDate(ms) {
@@ -825,20 +841,18 @@ async function compareBackup(id) {
 async function restoreBackup(id) {
   const { entry } = state.current;
   const backup = state.backups.list.find((x) => x.id === id);
-  if (await invoke('is_game_running')) {
-    await message('Close Nivalis Nights first, or the game may overwrite the restored save.', { title: 'Game is running', kind: 'warning' });
-    return;
-  }
+  const runningWarning = await gameRunningWarning(entry, 'The game keeps overwriting the autosave, so the restored one would be lost.');
+  if (runningWarning === null) return;
   try {
     parseSave(new Uint8Array(await invoke('read_backup', { path: entry.path, id })));
   } catch (e) {
     await message(`This backup can't be read: ${e.message ?? e}`, { title: 'Cannot restore', kind: 'error' });
     return;
   }
-  const autosaveWarning = entry.name.toUpperCase() === 'AUTOSAVE'
+  const autosaveWarning = isAutosave(entry)
     ? '\n\nThis is the autosave: everything you played since this backup will be lost from it.' : '';
   const pendingWarning = pendingCount() ? '\n\nYour unsaved changes will be discarded.' : '';
-  const ok = await ask(`Restore ${entry.name}.sav to the backup from ${formatDate(backup.createdMs)}?\n\nThe current save is backed up first, so you can undo this.${autosaveWarning}${pendingWarning}`, { title: 'Restore backup', kind: 'warning' });
+  const ok = await ask(`Restore ${entry.name}.sav to the backup from ${formatDate(backup.createdMs)}?\n\nThe current save is backed up first, so you can undo this.${autosaveWarning}${pendingWarning}${runningWarning}`, { title: 'Restore backup', kind: 'warning' });
   if (!ok) return;
   try {
     await invoke('restore_backup', { path: entry.path, id, note: `Restored the backup from ${formatDate(backup.createdMs)}` });
@@ -893,10 +907,8 @@ function renderPending() {
 
 async function saveChanges() {
   const { entry, save } = state.current;
-  if (await invoke('is_game_running')) {
-    await message('Close Nivalis Nights first. The game can overwrite the save or ignore your changes while it is running.', { title: 'Game is running', kind: 'warning' });
-    return;
-  }
+  const runningWarning = await gameRunningWarning(entry, 'The game keeps overwriting the autosave, so your changes would be lost.');
+  if (runningWarning === null) return;
   let bytes;
   try {
     bytes = applyEdits(save, {
@@ -911,7 +923,7 @@ async function saveChanges() {
   }
   const note = summarizeDiff(diffSaves(save, parseSave(bytes)));
   const untested = save.header.versionTested ? '' : `\n\nThis save uses format version ${save.header.version}, which this editor has not been tested with. The game may not load the edited save correctly.`;
-  const ok = await ask(`Write ${pendingCount()} change(s) to ${entry.name}.sav?${untested}\n\nThe current file is backed up first; you can restore it from the Backups tab.`, { title: 'Save changes', kind: untested ? 'warning' : 'info' });
+  const ok = await ask(`Write ${pendingCount()} change(s) to ${entry.name}.sav?${untested}\n\nThe current file is backed up first; you can restore it from the Backups tab.${runningWarning}`, { title: 'Save changes', kind: untested || runningWarning ? 'warning' : 'info' });
   if (!ok) return;
   try {
     await invoke('write_save', bytes, { headers: { 'x-save-path': encodeURIComponent(entry.path), 'x-backup-note': encodeURIComponent(note) } });
