@@ -20,12 +20,12 @@ WHAT IT DOES
 
 HOW TO USE
   1. Close Nivalis Nights. The editor will not save while the game is running.
-  2. Run NivalisSaveEditor.exe. No installation needed.
+  2. Run {{BINARY}}. No installation needed.
   3. Pick a save on the left, make your changes, then click "Save changes".
   4. Start the game and load that save.
 
 Your saves are found automatically in:
-  %USERPROFILE%\AppData\LocalLow\ION LANDS\Nivalis Nights
+  {{SAVES_DIR}}
 
 BACKUPS
 Before every change the editor backs up the save. Open the "Backups" tab to
@@ -35,7 +35,7 @@ it) is kept permanently. "Back up now" makes an extra backup at any time.
 Restoring also backs up the current save first, so it can be undone.
 
 Backups are stored compressed in
-  %LOCALAPPDATA%\Nivalis Save Editor\Backups
+  {{BACKUP_DIR}}
 outside the save folder, so they are not uploaded to Steam Cloud. Backups
 made by older versions of the editor are moved there automatically.
 
@@ -56,13 +56,9 @@ GOOD TO KNOW
     save, it refuses to open it instead of damaging it.
 
 REQUIREMENTS
-Windows 10 or 11 with Microsoft Edge WebView2 (included in Windows 11 and
-most up-to-date Windows 10 PCs). If the window stays blank, install the
-"Evergreen WebView2 Runtime" from Microsoft.
+{{REQUIREMENTS}}
 
-WINDOWS SMARTSCREEN
-The exe is not code-signed, so Windows may show "Windows protected your PC".
-Click "More info" -> "Run anyway".
+{{PLATFORM_NOTE}}
 
 LICENSE
 Copyright (c) 2026 RenokK. Licensed under Creative Commons

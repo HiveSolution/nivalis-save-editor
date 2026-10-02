@@ -5,3 +5,4 @@ src-tauri/gen/
 *.sav
 *.bak
 release/out/
+tools/

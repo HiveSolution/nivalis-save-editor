@@ -759,6 +759,14 @@ async function loadBackups() {
   }
 }
 
+// The backup folder without the user name in it (it would end up in screenshots).
+function backupFolderLabel(path) {
+  if (!path) return 'the app data folder';
+  return path
+    .replace(/^[A-Za-z]:\\Users\\[^\\]+\\AppData\\Local(?=\\)/, '%LOCALAPPDATA%')
+    .replace(/^\/home\/[^/]+(?=\/)/, '~');
+}
+
 function backupsHtml() {
   const b = state.backups;
   if (!b || b.path !== state.current.entry.path) return '<div class="empty"><div class="spinner"></div><p>Loading backups…</p></div>';
@@ -786,7 +794,7 @@ function backupsHtml() {
         <tbody>${rows || '<tr><td colspan="5" class="none">No backups of this save yet. One is made automatically every time you save changes.</td></tr>'}</tbody>
       </table>
     </div>
-    <p class="hint">Stored in <code title="${escapeHtml(state.backupFolder ?? '')}">%LOCALAPPDATA%\\Nivalis Save Editor\\Backups</code>, outside the Steam Cloud save folder.</p>
+    <p class="hint">Stored in <code title="${escapeHtml(state.backupFolder ?? '')}">${escapeHtml(backupFolderLabel(state.backupFolder))}</code>, outside the Steam Cloud save folder.</p>
     ${sel ? `
       <h2 class="section-title">Changes since the backup from ${formatDate(sel.backup.createdMs)}</h2>
       <div class="backup-compare">

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.renokk.nivalis-save-editor</id>
+  <name>Nivalis Save Editor</name>
+  <summary>Savegame editor for Nivalis Nights</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>CC-BY-NC-4.0</project_license>
+  <description>
+    <p>Unofficial savegame editor for Nivalis Nights. Browse saves, edit money,
+    story variables, inventories, relationships and venue levels, compare saves,
+    and keep gzip-compressed backups.</p>
+  </description>
+  <launchable type="desktop-id">nivalis-save-editor.desktop</launchable>
+  <url type="homepage">https://github.com/HiveSolution/nivalis-save-editor</url>
+  <project_group>RenokK</project_group>
+  <provides>
+    <id>nivalis-save-editor</id>
+  </provides>
+  <categories>
+    <category>Utility</category>
+  </categories>
+  <releases>
+    <release version="{{VERSION}}" date="{{DATE}}"/>
+  </releases>
+</component>

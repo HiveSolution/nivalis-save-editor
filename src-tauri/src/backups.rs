@@ -1,6 +1,7 @@
 // Backup store: gzip-compressed copies of saves, kept outside the Steam Cloud-synced save folder.
 //
-//   %LOCALAPPDATA%\Nivalis Save Editor\Backups\<folder key>\<save name>\
+//   <app data dir>/Nivalis Save Editor/Backups/<folder key>/<save name>/   (Windows)
+//   <app data dir>/nivalis-save-editor/backups/<folder key>/<save name>/  (Linux)
 //       manifest.json     list of backups (newest last)
 //       <id>.sav.gz       the save
 //       <id>.png          its screenshot, if there was one
@@ -35,8 +36,20 @@ struct Manifest {
 }
 
 pub fn store_root() -> Result<PathBuf, String> {
-    let base = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is not set")?;
-    Ok(PathBuf::from(base).join("Nivalis Save Editor").join("Backups"))
+    if cfg!(windows) {
+        let base = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is not set")?;
+        Ok(PathBuf::from(base).join("Nivalis Save Editor").join("Backups"))
+    } else {
+        if let Some(xdg) = std::env::var_os("XDG_DATA_HOME").filter(|d| !d.is_empty()) {
+            return Ok(PathBuf::from(xdg).join("nivalis-save-editor").join("backups"));
+        }
+        let home = std::env::var_os("HOME").ok_or("HOME is not set")?;
+        Ok(PathBuf::from(home)
+            .join(".local")
+            .join("share")
+            .join("nivalis-save-editor")
+            .join("backups"))
+    }
 }
 
 // Stable short key per save folder, so saves with the same name in different folders stay apart.
@@ -277,7 +290,9 @@ mod tests {
         let _ = fs::remove_dir_all(&base);
         let saves = base.join("saves");
         fs::create_dir_all(saves.join(LEGACY_DIR)).unwrap();
-        std::env::set_var("LOCALAPPDATA", base.join("appdata"));
+        let appdata = base.join("appdata");
+        std::env::set_var("LOCALAPPDATA", &appdata);
+        std::env::set_var("XDG_DATA_HOME", &appdata);
 
         fs::write(saves.join(LEGACY_DIR).join("AUTOSAVE.1000.sav.bak"), b"legacy").unwrap();
         let save = saves.join("AUTOSAVE.sav");
