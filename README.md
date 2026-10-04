@@ -8,7 +8,7 @@ A small desktop editor for **Nivalis Nights** save files (`.sav`), built with Ta
 - Browse, search and edit the game's **1,800+ story variables** (flags and numbers: relationships, venue levels, quest steps, …)
 - **Inventory**: view and edit the items in your inventory, your venues' storage, fridges and furniture, and vendor stock; add any of 1,300+ items, change quantities and freshness
 - **Compare** two saves to see which variables a quest step changed, and copy values across
-- **People** and **Venues**: friendly editors for relationship levels and venue level/reviews; debt on the overview
+- **People** and **Venues**: friendly editors for relationship levels and for venue level, customers served and review stars; debt on the overview
 - **Backups**: up to 10 gzip-compressed backups per save (Windows: `%LOCALAPPDATA%\Nivalis Save Editor\Backups`, Linux: `~/.local/share/nivalis-save-editor/backups`; outside Steam Cloud), the first one kept permanently, with a per-backup comparison and one-click, undoable restore. Every edit is verified by re-reading the result before it is written
 
 Saves live in `%USERPROFILE%\AppData\LocalLow\ION LANDS\Nivalis Nights\` on Windows, and in the Proton prefix on Linux: `~/.local/share/Steam/steamapps/compatdata/1488490/pfx/drive_c/users/steamuser/AppData/LocalLow/ION LANDS/Nivalis Nights` (the editor also looks in `~/.steam/steam`, Flatpak Steam and the extra Steam libraries listed in `libraryfolders.vdf`). **Manual saves can be edited while the game is running**: save in the game, edit that save, then load it again. The autosave can only be changed once the game is closed, because the game keeps overwriting it; the editor checks for the running game on both platforms. Steam Cloud syncs this folder, so the edited file becomes the synced version.
@@ -52,7 +52,9 @@ npm run cli -- vars  <save.sav> [filter]
 npm run cli -- diff  <old.sav> <new.sav>
 npm run cli -- check <save.sav>...
 npm run cli -- skills <save.sav>
+npm run cli -- venues <save.sav>
 npm run cli -- edit  <save.sav> --money 2500.00 --set GameState.Debt=0 --skill Boat=3 -o out.sav
+npm run cli -- edit  <save.sav> --venue Venue_NoodleBar.level=5 --venue Venue_NoodleBar.served=600 --venue Venue_NoodleBar.stars=5 -o out.sav
 ```
 
 ## Layout
@@ -111,6 +113,17 @@ Layout: `int32 count`, then for each entry `string name, int32 type, value`. Int
 Freshness is counted in 8-hour units and drops at 00:00, 08:00 and 16:00; 0 means the item doesn't spoil. Inventory edits change the file size, so the editor re-encodes the section and shifts every later Ghost block end offset.
 
 **Skills** (section key `2F00F72D-896A-42F8-92C4-E775FB79970E`). `int32 count`, then per skill `string skillGuid, float xp, int32 level`. A skill gets an entry once the player has gained XP in it. XP is cumulative; each skill definition in the game assets lists the XP every level costs (Boat: 2000, 5000, 10000, …, so level 2 starts at 7000), and the stored level always matches the XP. Stored levels start at 0, while the game shows them starting at 1; the editor and the CLI use the game's numbering. The game has been seen to store `NaN` as the XP of a skill at its top level. The section after it (`55F0A877-…`) holds achievement counters.
+
+**Venues** (`VenueAreaGhost`, one Ghost block per venue). The level, customers served and reviews live here; the `Venue_<name>.Level`, `.CustomersServed`, `.ReviewScore` and `.ReviewAmount` story variables are copies the game rewrites from this record when a save loads (it only does so for some venues, so the copies of NPC-run venues can be stale). Editing only the variables therefore has no effect in the game. The record is the block that contains the venue's GUID and has this shape:
+
+| Part | Layout |
+|---|---|
+| Start | `string tag, int32 end offset, int32, string ghostGuid, 3 bytes, string ghostGuid, int32, byte, 7 floats (position, rotation), byte, float` |
+| Then | `int32 n` + n GUID strings (placed furniture), `int32 n` + n GUID strings (trash), `int32 initial trash count` |
+| Stats | `int32 currentLevel, int32 mealsServed (customers served), int32 totalVisits`, then more venue state |
+| Reviews | later in the block: `int32 count`, then per review `string venueGuid, int32 stars, string mainItem, 5 floats (cleanliness, rain, snow, comfort, service), int32 time, string personGuid, int32 n` + n delivered meals (`string item, int32 price, 2 floats, string mealGhost`), `byte, string override text, byte, int32, int32, int32 n` + n `(string, int32)` |
+
+The review score the game shows is an average over the reviews (weighted by age) and the review count is the number of records, so the editor changes the score by setting every review's stars and leaves the count alone. The game has level-up and level-down checks against customers served and the average review. Levels above 5 have not been seen.
 
 **Item names.** Item GUIDs are the ids of item definitions in the game's asset files. `scripts/build-item-catalog.mjs` extracts names, base prices, freshness and refrigeration flags, plus vendor and venue names and the skill level tables, into `src/data/items.json`:
 

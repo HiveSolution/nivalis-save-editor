@@ -42,6 +42,13 @@ export function venueInfo(id) {
   return data.venues[id] ?? null;
 }
 
+const VENUE_ID_BY_INTERNAL = new Map(Object.entries(data.venues).map(([id, v]) => [v.internal, id]));
+
+// "Venue_NoodleBar" (the story variable group) -> venue id
+export function venueIdByInternal(internal) {
+  return VENUE_ID_BY_INTERNAL.get(internal) ?? null;
+}
+
 export function venueName(id) {
   const v = data.venues[id];
   if (!v) return `Venue ${id.slice(0, 8)}`;

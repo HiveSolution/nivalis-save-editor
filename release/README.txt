@@ -10,8 +10,8 @@ WHAT IT DOES
   - Edit inventories: your own, your venues' storage, fridges and furniture,
     and vendor stock. Add any of 1,300+ items, change quantities and
     freshness, or make all food fresh again
-  - Edit relationships (friend, romance, business, enemy) and your venues'
-    level and reviews, plus your debt
+  - Edit relationships (friend, romance, business, enemy), your venues'
+    level, customers served and review stars, and your debt
   - Browse, search and edit the game's story variables (relationship values,
     venue levels, quest flags and more)
   - Compare two saves to see what changed between them, and copy values over

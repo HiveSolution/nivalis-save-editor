@@ -3,9 +3,10 @@
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
 import {
   parseSave, summarize, listVariables, diffSaves, applyEdits, roundTripCheck, formatCredits, currentGameDay, xpForLevel,
+  findVenue, averageReviewScore,
 } from '../core/index.js';
 
-const { items: CATALOG, skills: SKILLS } = JSON.parse(readFileSync(new URL('../src/data/items.json', import.meta.url), 'utf8'));
+const { items: CATALOG, skills: SKILLS, venues: VENUES } = JSON.parse(readFileSync(new URL('../src/data/items.json', import.meta.url), 'utf8'));
 const itemName = (guid) => CATALOG[guid]?.name ?? `Unknown item ${guid}`;
 
 // Skill levels are stored from 0 but shown from 1 in the game; the CLI speaks the game's numbers.
@@ -16,6 +17,15 @@ function findSkill(query) {
   if (SKILLS[query]) return query;
   const match = Object.entries(SKILLS).find(([, s]) => s.name.toLowerCase() === query.toLowerCase());
   if (!match) throw new Error(`Unknown skill "${query}" (known: ${Object.values(SKILLS).map((s) => s.name).join(', ')})`);
+  return match[0];
+}
+
+// Venue GUID from its GUID, story variable group (Venue_NoodleBar) or key (VENUE_RAMEN_NOIR).
+function findVenueId(query) {
+  if (VENUES[query]) return query;
+  const q = query.toLowerCase();
+  const match = Object.entries(VENUES).find(([, v]) => v.internal.toLowerCase() === q || v.key?.toLowerCase() === q);
+  if (!match) throw new Error(`Unknown venue "${query}" (see nnsave venues <save>)`);
   return match[0];
 }
 
@@ -33,8 +43,9 @@ const USAGE = `Usage:
   nnsave check <file.sav>...
   nnsave inv <file.sav> [container]
   nnsave skills <file.sav>
+  nnsave venues <file.sav>
   nnsave edit <file.sav> [--money <credits>] [--set Name.Var=value]... [--add-item <container>:<item>:<qty>]...
-              [--skill <name>=<level>]...
+              [--skill <name>=<level>]... [--venue <venue>.(level|served|stars)=<n>]...
               (-o <out.sav> | --in-place)`;
 
 const load = (path) => parseSave(new Uint8Array(readFileSync(path)));
@@ -97,6 +108,16 @@ ${c.key} (${c.kind}${c.storage ? `, ${c.storage}` : ''}, ${c.items.length} items
       }
       return 0;
     }
+    case 'venues': {
+      const save = load(args[0]);
+      for (const [id, info] of Object.entries(VENUES)) {
+        const v = findVenue(save, id);
+        if (!v) continue;
+        const avg = averageReviewScore(v);
+        console.log(`${info.internal.padEnd(52)} level ${v.level}  served ${String(v.mealsServed).padEnd(6)} reviews ${String(v.reviews.length).padEnd(5)} avg ${avg === null ? '-' : avg.toFixed(2)}`);
+      }
+      return 0;
+    }
     case 'diff': {
       const d = diffSaves(load(args[0]), load(args[1]));
       for (const h of d.header) console.log(`[header] ${h.field}: ${h.before} -> ${h.after}`);
@@ -126,6 +147,7 @@ ${c.key} (${c.kind}${c.storage ? `, ${c.storage}` : ''}, ${c.items.length} items
       const edits = { variables: {} };
       const addItems = [];
       const skillLevels = [];
+      const venueSpecs = [];
       let out;
       let inPlace = false;
       for (let i = 0; i < rest.length; i++) {
@@ -136,6 +158,7 @@ ${c.key} (${c.kind}${c.storage ? `, ${c.storage}` : ''}, ${c.items.length} items
           edits.variables[name] = parseValue(raw);
         } else if (a === '--add-item') addItems.push(rest[++i]);
         else if (a === '--skill') skillLevels.push(rest[++i]);
+        else if (a === '--venue') venueSpecs.push(rest[++i]);
         else if (a === '-o') out = rest[++i];
         else if (a === '--in-place') inPlace = true;
         else throw new Error(`Unknown option ${a}`);
@@ -150,6 +173,16 @@ ${c.key} (${c.kind}${c.storage ? `, ${c.storage}` : ''}, ${c.items.length} items
         const { steps } = SKILLS[guid];
         if (!Number.isInteger(level) || level < 0 || level >= steps.length) throw new Error(`${SKILLS[guid].name} level must be 1 to ${steps.length}`);
         (edits.skills ??= {})[guid] = { xp: xpForLevel(steps, level), level };
+      }
+      for (const spec of venueSpecs) {
+        const [query, field, raw] = spec.split(/[.=]/);
+        const id = findVenueId(query);
+        const key = { level: 'level', served: 'mealsServed', stars: 'reviewScore' }[field];
+        if (!key || !/^\d+$/.test(raw ?? '')) throw new Error(`Invalid venue edit "${spec}" (e.g. Venue_NoodleBar.level=5, .served=600, .stars=5)`);
+        (edits.venues ??= {})[id] = { ...edits.venues?.[id], [key]: Number(raw) };
+        const sync = { level: 'Level', mealsServed: 'CustomersServed', reviewScore: 'ReviewScore' }[key];
+        const name = `${VENUES[id].internal}.${sync}`;
+        if (listVariables(save).some((v) => v.name === name) && !(name in edits.variables)) edits.variables[name] = Number(raw);
       }
       if (addItems.length) {
         edits.inventory = {};

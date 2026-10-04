@@ -3,10 +3,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open, ask, message } from '@tauri-apps/plugin-dialog';
 import {
   parseSave, summarize, listVariables, diffSaves, applyEdits, formatCredits, currentGameDay, xpForLevel, INT32_MAX, TESTED_VERSIONS,
+  findVenue, averageReviewScore, VENUE_MAX_LEVEL, REVIEW_MAX_SCORE,
 } from '../core/index.js';
 import { areaName } from './areas.js';
 import {
-  itemInfo, itemName, ITEM_CHOICES, venueInfo, venueName, vendorName, skillInfo, skillName, prettify,
+  itemInfo, itemName, ITEM_CHOICES, venueInfo, venueIdByInternal, venueName, vendorName, skillInfo, skillName, prettify,
 } from './catalog.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -15,7 +16,7 @@ const state = {
   dir: null,
   saves: [],
   thumbs: new Map(), // path -> blob URL
-  current: null, // { entry, save, summary, vars, varIndex }
+  current: null, // { entry, save, summary, vars, varIndex, venueStats }
   edits: null, // set by resetEdits()
   tab: 'overview',
   invKey: 'PLAYER_INVENTORY',
@@ -85,11 +86,12 @@ function toast(text, kind = 'ok') {
 }
 
 function pendingCount() {
-  return (state.edits.moneyCents !== undefined ? 1 : 0) + state.edits.variables.size + state.edits.inventory.size + state.edits.skills.size;
+  return (state.edits.moneyCents !== undefined ? 1 : 0) + state.edits.variables.size + state.edits.inventory.size
+    + state.edits.skills.size + state.edits.venues.size;
 }
 
 function resetEdits() {
-  state.edits = { moneyCents: undefined, variables: new Map(), inventory: new Map(), skills: new Map() };
+  state.edits = { moneyCents: undefined, variables: new Map(), inventory: new Map(), skills: new Map(), venues: new Map() };
 }
 resetEdits();
 
@@ -176,7 +178,7 @@ async function openSave(entry) {
   try {
     const save = parseSave(await readBytes(entry.path));
     const vars = listVariables(save);
-    state.current = { entry, save, summary: summarize(save), vars, varIndex: new Map(vars.map((v) => [v.name, v])) };
+    state.current = { entry, save, summary: summarize(save), vars, varIndex: new Map(vars.map((v) => [v.name, v])), venueStats: new Map() };
   } catch (e) {
     state.current = null;
     $('#main').innerHTML = `<div class="empty"><h2>Cannot open this save</h2><p class="error-text">${escapeHtml(e.message)}</p></div>`;
@@ -579,13 +581,8 @@ function renderPeopleRows() {
   }).join('') : '<tr><td colspan="6" class="none">Nobody matches.</td></tr>';
 }
 
-// Stats the player may meaningfully change; the rest are recalculated by the game from the world.
-const VENUE_EDITABLE = [
-  ['Level', 'Level'],
-  ['ReviewScore', 'Review score'],
-  ['ReviewAmount', 'Reviews'],
-  ['CustomersServed', 'Customers served'],
-];
+// Level, customers served and reviews live in the venue's world record (core/venues.js); the game copies
+// them into the Venue_* story variables when a save loads, so those variables are only kept in sync.
 const VENUE_INFO = [
   ['Seats', 'Seats'], ['BarSeats', 'Bar seats'], ['MenuMeals', 'Meals on menu'], ['MenuDrinks', 'Drinks on menu'],
   ['StaffTotal', 'Staff'], ['StaffChefs', 'Chefs'], ['StaffWaiters', 'Waiters'], ['StaffCleaners', 'Cleaners'],
@@ -594,14 +591,71 @@ const VENUE_INFO = [
 
 function venueList() {
   const groups = new Set(state.current.vars.filter((v) => v.group.startsWith('Venue_') && v.key === 'Owned').map((v) => v.group));
-  const idByInternal = new Map();
-  for (const c of state.current.save.inventory.containers) {
-    if (c.kind === 'venue') { const info = venueInfo(c.venueId); if (info) idByInternal.set(info.internal, c.venueId); }
-  }
   return [...groups].map((group) => {
-    const id = idByInternal.get(group);
+    const id = venueIdByInternal(group);
     return { group, id, name: id ? venueName(id) : prettify(group.replace(/^Venue_/, '')), owned: varValue(`${group}.Owned`) === true };
   }).sort((a, b) => (b.owned - a.owned) || a.name.localeCompare(b.name));
+}
+
+// The venue's world record, or null when the save has none the editor can recognise.
+function venueStats(id) {
+  const cache = state.current.venueStats;
+  if (!cache.has(id)) {
+    try {
+      cache.set(id, findVenue(state.current.save, id));
+    } catch {
+      cache.set(id, null);
+    }
+  }
+  return cache.get(id);
+}
+
+function setVenueEdit(id, field, value) {
+  const stats = venueStats(id);
+  const edit = { ...state.edits.venues.get(id) };
+  if (value === undefined || (field !== 'reviewScore' && value === stats[field])) delete edit[field];
+  else edit[field] = value;
+  if (Object.keys(edit).length) state.edits.venues.set(id, edit);
+  else state.edits.venues.delete(id);
+  renderPending();
+}
+
+const formatStars = (score) => (score === null ? '–' : `${score.toFixed(2)} ★`);
+
+function venueFieldsHtml(id) {
+  const stats = id && venueStats(id);
+  if (!stats) return '<p class="hint">This venue’s level and reviews were not found in this save.</p>';
+  const edit = state.edits.venues.get(id) ?? {};
+  const number = (field, label, min, max) => `
+    <label class="field"><span>${label}</span>
+      <input class="num small ${edit[field] !== undefined ? 'modified' : ''}" type="number" step="1" min="${min}" ${max ? `max="${max}"` : ''}
+        data-venue="${id}" data-venue-field="${field}" value="${edit[field] ?? stats[field]}"></label>`;
+  const count = stats.reviews.length;
+  const stars = Array.from({ length: REVIEW_MAX_SCORE }, (_, i) => i + 1)
+    .map((s) => `<option value="${s}" ${edit.reviewScore === s ? 'selected' : ''}>All ${s} ★</option>`).join('');
+  return `
+    <div class="venue-grid">
+      ${number('level', `Level <span class="subtle">1–${VENUE_MAX_LEVEL}</span>`, 1, VENUE_MAX_LEVEL)}
+      ${number('mealsServed', 'Customers served', 0)}
+      <label class="field"><span>Reviews <span class="subtle">${count} · average ${formatStars(averageReviewScore(stats))}</span></span>
+        <select data-venue="${id}" data-venue-field="reviewScore" class="${edit.reviewScore ? 'modified' : ''}" ${count ? '' : 'disabled'}>
+          <option value="">${count ? 'Keep as they are' : 'No reviews yet'}</option>${stars}
+        </select></label>
+    </div>`;
+}
+
+// Story variables that mirror the venue edits, so the save is consistent before the game refreshes them.
+function venueVariableEdits() {
+  const out = {};
+  for (const [id, edit] of state.edits.venues) {
+    const group = venueInfo(id)?.internal;
+    const sync = { Level: edit.level, CustomersServed: edit.mealsServed, ReviewScore: edit.reviewScore };
+    for (const [key, value] of Object.entries(sync)) {
+      const name = `${group}.${key}`;
+      if (value !== undefined && state.current.varIndex.get(name)?.kind === 'int' && !state.edits.variables.has(name)) out[name] = value;
+    }
+  }
+  return out;
 }
 
 function venuesHtml() {
@@ -613,10 +667,7 @@ function venuesHtml() {
         <h2>${escapeHtml(v.name)}</h2>
         ${v.owned ? '<span class="badge">Owned</span>' : '<span class="subtle">Not owned</span>'}
       </div>
-      <div class="venue-grid">
-        ${VENUE_EDITABLE.filter(([k]) => varValue(`${v.group}.${k}`) !== undefined).map(([k, label]) => `
-          <label class="field"><span>${label}</span>${varInput(`${v.group}.${k}`)}</label>`).join('')}
-      </div>
+      ${venueFieldsHtml(v.id)}
       <div class="venue-info subtle">
         ${VENUE_INFO.filter(([k]) => varValue(`${v.group}.${k}`) !== undefined).map(([k, label]) => `${label}: <b>${varValue(`${v.group}.${k}`)}</b>`).join(' · ')}
       </div>
@@ -627,7 +678,7 @@ function venuesHtml() {
       <label class="check"><input id="venues-owned" type="checkbox" ${f.ownedOnly ? 'checked' : ''}> Owned only</label>
       <span class="subtle">${venues.length} venue${venues.length === 1 ? '' : 's'}</span>
     </div>
-    <p class="hint">Level, review score, reviews and customers served can be edited. Seats, staff, menu and storage are shown for information: the game recalculates them from your venue. Ownership can’t be changed here yet, because it is also stored in other parts of the save.</p>
+    <p class="hint">Level and customers served can be edited. The review score is the average of the venue’s reviews, so it changes by giving every review the same number of stars; the number of reviews can’t be changed. The game also checks the level against customers served and the review score, so raise those along with the level. Seats, staff, menu and storage are shown for information: the game recalculates them from your venue. Ownership can’t be changed here yet, because it is also stored in other parts of the save.</p>
     ${cards || '<p class="hint">No venues match.</p>'}`;
 }
 
@@ -913,9 +964,10 @@ async function saveChanges() {
   try {
     bytes = applyEdits(save, {
       moneyCents: state.edits.moneyCents,
-      variables: Object.fromEntries(state.edits.variables),
+      variables: { ...venueVariableEdits(), ...Object.fromEntries(state.edits.variables) },
       inventory: Object.fromEntries(state.edits.inventory),
       skills: Object.fromEntries(state.edits.skills),
+      venues: Object.fromEntries(state.edits.venues),
     });
   } catch (e) {
     await message(e.message, { title: 'Cannot apply changes', kind: 'error' });
@@ -1007,7 +1059,15 @@ document.addEventListener('input', (e) => {
     commitInventory(state.invKey);
     t.closest('tr').classList.add('modified');
   } else if (t.id === 'inv-add-search') { $('#inv-add-hint').classList.remove('error-text'); }
-  else if (t.matches('input.num[data-var]')) {
+  else if (t.dataset.venueField && t.matches('input')) {
+    const v = Number(t.value);
+    const max = t.dataset.venueField === 'level' ? VENUE_MAX_LEVEL : INT32_MAX;
+    const ok = /^\d+$/.test(t.value) && v >= Number(t.min) && v <= max;
+    t.classList.toggle('invalid', !ok);
+    if (!ok) return;
+    setVenueEdit(t.dataset.venue, t.dataset.venueField, v);
+    t.classList.toggle('modified', state.edits.venues.get(t.dataset.venue)?.[t.dataset.venueField] !== undefined);
+  } else if (t.matches('input.num[data-var]')) {
     const ok = /^-?\d+$/.test(t.value) && Math.abs(Number(t.value)) <= INT32_MAX;
     t.classList.toggle('invalid', !ok);
     if (ok) {
@@ -1026,6 +1086,10 @@ document.addEventListener('change', (e) => {
   else if (t.id === 'compare-select') runCompare(t.value);
   else if (t.id === 'inv-container') { state.invKey = t.value; renderTab(); }
   else if (t.dataset.skill) setSkillLevel(t.dataset.skill, Number(t.value));
+  else if (t.dataset.venueField === 'reviewScore') {
+    setVenueEdit(t.dataset.venue, 'reviewScore', t.value ? Number(t.value) : undefined);
+    t.classList.toggle('modified', Boolean(t.value));
+  }
   else if (t.matches('.inv-qty, .inv-fresh')) renderTab();
   else if (t.matches('input[type=checkbox][data-var]')) { setVariableEdit(t.dataset.var, t.checked); refreshAfterVarEdit(); }
   else if (t.matches('input.num[data-var]')) refreshAfterVarEdit();

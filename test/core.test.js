@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseSave, applyEdits, roundTripCheck, diffSaves, listVariables, summarize,
   UnsupportedEditError, SaveFormatError, formatCredits, currentGameDay, TESTED_VERSIONS, xpForLevel, levelForXp,
+  findVenue, averageReviewScore, VENUE_MAX_LEVEL,
 } from '../core/index.js';
 import { encodeString, readString } from '../core/binary.js';
 
@@ -181,6 +182,51 @@ for (const file of saveFiles) {
     }
   });
 }
+
+const { venues: VENUES } = JSON.parse(readFileSync(new URL('../src/data/items.json', import.meta.url), 'utf8'));
+
+for (const file of saveFiles) {
+  test(`${file}: venue stats are found and can be edited`, () => {
+    const save = load(file);
+    const vars = new Map(listVariables(save).map((v) => [v.name, v.value]));
+    const venues = Object.keys(VENUES).map((id) => findVenue(save, id)).filter(Boolean);
+    assert.ok(venues.length > 10, `found ${venues.length} venues`);
+    // The game copies the stats of venues the player owns into the story variables.
+    for (const v of venues) {
+      const group = VENUES[v.id].internal;
+      if (vars.get(`${group}.Owned`) !== true) continue;
+      assert.equal(v.level, vars.get(`${group}.Level`), `${group} level`);
+      assert.equal(v.mealsServed, vars.get(`${group}.CustomersServed`), `${group} customers served`);
+      assert.equal(v.reviews.length, vars.get(`${group}.ReviewAmount`), `${group} reviews`);
+    }
+    const target = venues.find((v) => v.reviews.length);
+    const edit = { level: target.level === VENUE_MAX_LEVEL ? 1 : VENUE_MAX_LEVEL, mealsServed: target.mealsServed + 1000, reviewScore: 5 };
+    const edited = applyEdits(save, { venues: { [target.id]: edit } });
+    assert.equal(edited.length, save.bytes.length);
+    let changed = 0;
+    for (let i = 0; i < edited.length; i++) if (edited[i] !== save.bytes[i]) changed++;
+    assert.ok(changed >= 2 && changed <= 8 + 4 * target.reviews.length, `changed ${changed} bytes`);
+    const re = parseSave(edited);
+    assert.deepEqual(roundTripCheck(re), []);
+    const after = findVenue(re, target.id);
+    assert.equal(after.level, edit.level);
+    assert.equal(after.mealsServed, edit.mealsServed);
+    assert.equal(averageReviewScore(after), 5);
+    assert.deepEqual(diffSaves(save, re).variables, []);
+  });
+}
+
+test('rejects invalid venue edits', { skip: saveFiles.length === 0 && 'no sample saves found' }, () => {
+  const save = load(saveFiles[0]);
+  const venues = Object.keys(VENUES).map((id) => findVenue(save, id)).filter(Boolean);
+  const { id } = venues.find((v) => v.reviews.length);
+  for (const bad of [{ level: 0 }, { level: VENUE_MAX_LEVEL + 1 }, { level: 2.5 }, { mealsServed: -1 }, { reviewScore: 0 }, { reviewScore: 6 }]) {
+    assert.throws(() => applyEdits(save, { venues: { [id]: bad } }), UnsupportedEditError);
+  }
+  const unreviewed = venues.find((v) => !v.reviews.length);
+  if (unreviewed) assert.throws(() => applyEdits(save, { venues: { [unreviewed.id]: { reviewScore: 5 } } }), UnsupportedEditError);
+  assert.throws(() => applyEdits(save, { venues: { '00000000-0000-0000-0000-000000000000': { level: 1 } } }), UnsupportedEditError);
+});
 
 test('rejects invalid skill edits', { skip: saveFiles.length === 0 && 'no sample saves found' }, () => {
   const save = load(saveFiles.find((f) => load(f).skills.entries.length) ?? saveFiles[0]);

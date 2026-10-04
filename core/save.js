@@ -8,8 +8,9 @@
 //   player money  int32 cents directly after the player's Ghost block (duplicate of the header value)
 //   inventories   see inventory.js
 //   skills        see skills.js
+//   venues        see venues.js
 //
-// Money, variable and skill edits are same-size. Inventory edits re-encode the inventory section, which can
+// Money, variable, skill and venue edits are same-size. Inventory edits re-encode the inventory section, which can
 // change the file size; every Ghost block after the section then gets its end offset shifted.
 
 import {
@@ -19,6 +20,7 @@ import {
 import { SaveFormatError, UnsupportedEditError } from './errors.js';
 import { parseInventory, encodeInventoryBody, validateInventoryItems } from './inventory.js';
 import { parseSkills, SKILLS_KEY } from './skills.js';
+import { findVenue, venueWrites } from './venues.js';
 
 export { SaveFormatError, UnsupportedEditError };
 
@@ -215,7 +217,7 @@ export function formatCredits(cents) {
 
 // Returns a new byte array with the edits applied and verified:
 //   edits = { moneyCents?, variables?: { name: value }, inventory?: { containerKey: items[] },
-//             skills?: { skillGuid: { xp, level } } }
+//             skills?: { skillGuid: { xp, level } }, venues?: { venueGuid: { level?, mealsServed?, reviewScore? } } }
 // Inventory entries replace the full item list of that container ({ guid, stacks: [{ price, day, quantity, freshness }] }).
 export function applyEdits(save, edits) {
   const out = new Uint8Array(save.bytes);
@@ -270,6 +272,18 @@ export function applyEdits(save, edits) {
     writeFloat32(out, entry.xpOffset, xp);
     for (let i = 0; i < 4; i++) changedOffsets.add(entry.xpOffset + i);
     write32(entry.levelOffset, level);
+  }
+
+  for (const [id, edit] of Object.entries(edits.venues ?? {})) {
+    const venue = findVenue(save, id);
+    if (!venue) throw new UnsupportedEditError(`Venue ${id} is not in this save`);
+    let writes;
+    try {
+      writes = venueWrites(venue, edit);
+    } catch (e) {
+      throw new UnsupportedEditError(e.message);
+    }
+    for (const [pos, v] of writes) write32(pos, v);
   }
 
   for (let i = 0; i < out.length; i++) {
@@ -350,6 +364,19 @@ function verifyEdited(original, bytes, edits) {
       throw new SaveFormatError(`Skill ${e.guid} did not verify after edit`);
     }
   });
+  for (const [id, edit] of Object.entries(edits.venues ?? {})) {
+    const before = findVenue(original, id);
+    const after = findVenue(reparsed, id);
+    const expect = (field, v) => {
+      if (after[field] !== (v ?? before[field])) throw new SaveFormatError(`Venue ${id} ${field} did not verify after edit`);
+    };
+    expect('level', edit.level);
+    expect('mealsServed', edit.mealsServed);
+    if (after.reviews.length !== before.reviews.length
+        || after.reviews.some((r, i) => r.score !== (edit.reviewScore ?? before.reviews[i].score))) {
+      throw new SaveFormatError(`Venue ${id} reviews did not verify after edit`);
+    }
+  }
   const invEdits = edits.inventory ?? {};
   if (reparsed.inventory.containers.length !== original.inventory.containers.length) {
     throw new SaveFormatError('Container count changed after edit');
