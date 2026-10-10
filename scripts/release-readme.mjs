@@ -8,7 +8,7 @@ const PLATFORMS = {
     BINARY: 'NivalisSaveEditor.exe',
     SAVES_DIR: '%USERPROFILE%\\AppData\\LocalLow\\ION LANDS\\Nivalis Nights',
     BACKUP_DIR: '%LOCALAPPDATA%\\Nivalis Save Editor\\Backups',
-    REQUIREMENTS: 'Windows 10 or 11 with Microsoft Edge WebView2 (included in Windows 11 and\nmost up-to-date Windows 10 PCs). If the window stays blank, install the\n"Evergreen WebView2 Runtime" from Microsoft.',
+    REQUIREMENTS: 'Windows 10 or 11 with the Microsoft Edge WebView2 Runtime (included in\nWindows 11 and most up-to-date Windows 10 PCs). Windows 10 LTSC and IoT\neditions don\'t include it. If the editor says "Could not find the WebView2\nRuntime" or the window stays blank, install the "Evergreen Standalone\nInstaller (x64)" from https://developer.microsoft.com/microsoft-edge/webview2/\nThe Edge browser alone is not enough.',
     PLATFORM_NOTE: 'WINDOWS SMARTSCREEN\nThe exe is not code-signed, so Windows may show "Windows protected your PC".\nClick "More info" -> "Run anyway".',
     eol: '\r\n',
   },

@@ -25,7 +25,7 @@ Tested with save versions **151**, **153** (the game patch of 1 October 2026) an
 
 ## Development
 
-Requirements: Node 20+, Rust (stable). On Windows: MSVC toolchain, Visual Studio C++ build tools, WebView2 (built into Windows 10/11). On Linux: WebKitGTK dev packages (e.g. `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`).
+Requirements: Node 20+, Rust (stable). On Windows: MSVC toolchain, Visual Studio C++ build tools, WebView2 Runtime (built into Windows 11 and most Windows 10 PCs, but not Windows 10 LTSC/IoT). On Linux: WebKitGTK dev packages (e.g. `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`).
 
 ```sh
 npm install
