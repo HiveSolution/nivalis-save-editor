@@ -24,10 +24,10 @@ import { findVenue, venueWrites } from './venues.js';
 
 export { SaveFormatError, UnsupportedEditError };
 
-// Versions checked against real saves. 153 (game patch of 2026-10-01) has the same layout as 151; it
-// only adds and drops a few variables. Other versions are still opened: the structural checks in
+// Versions checked against real saves. 153 (game patch of 2026-10-01) and 164 have the same layout as 151; they
+// only add and drop a few variables. Other versions are still opened: the structural checks in
 // parseSave decide whether the layout is understood, and header.versionTested lets the UI warn.
-export const TESTED_VERSIONS = [151, 153];
+export const TESTED_VERSIONS = [151, 153, 164];
 export const INT32_MAX = 2147483647;
 
 export const VARIABLE_TABLES = [

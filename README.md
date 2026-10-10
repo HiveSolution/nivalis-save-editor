@@ -13,7 +13,7 @@ A small desktop editor for **Nivalis Nights** save files (`.sav`), built with Ta
 
 Saves live in `%USERPROFILE%\AppData\LocalLow\ION LANDS\Nivalis Nights\` on Windows, and in the Proton prefix on Linux: `~/.local/share/Steam/steamapps/compatdata/1488490/pfx/drive_c/users/steamuser/AppData/LocalLow/ION LANDS/Nivalis Nights` (the editor also looks in `~/.steam/steam`, Flatpak Steam and the extra Steam libraries listed in `libraryfolders.vdf`). **Manual saves can be edited while the game is running**: save in the game, edit that save, then load it again. The autosave can only be changed once the game is closed, because the game keeps overwriting it; the editor checks for the running game on both platforms. Steam Cloud syncs this folder, so the edited file becomes the synced version.
 
-Tested with save versions **151** and **153** (the game patch of 1 October 2026). Saves of any other version still open if their layout checks out, with a warning in the save view and again before writing; a save whose layout the editor doesn't understand is refused, whatever its version.
+Tested with save versions **151**, **153** (the game patch of 1 October 2026) and **164** (the game update of October 2026). Saves of any other version still open if their layout checks out, with a warning in the save view and again before writing; a save whose layout the editor doesn't understand is refused, whatever its version.
 
 ## Screenshots
 
@@ -67,17 +67,19 @@ npm run cli -- edit  <save.sav> --venue Venue_NoodleBar.level=5 --venue Venue_No
 | `src/` | Web UI (vanilla JS + Vite) |
 | `src-tauri/` | Rust shell: locate saves, read files, backup + atomic write, game-running check |
 
-## Save format notes (versions 151 and 153)
+## Save format notes (versions 151, 153 and 164)
 
 Reverse-engineered; the game is an IL2CPP Unity build with a custom `BinaryWriter`-style serializer. Little-endian; strings are 7-bit-length-prefixed UTF-8. No compression, encryption or checksum found.
 
 Version 153 has the same layout as 151. A 151 save loaded and re-saved by the patched game keeps its sections and inventory grammar; the story variables gain `Chess.NextTryDay` and five `GlobalInventory*` counters and lose `Venue_NoodleBar.HasAllIngredients`.
 
+Version 164 has the same layout as 153 too. The story variables gain `MicaRain.Gone`, `NoeStalgia.Gone`, `NoeStalgia.CoffeeDelivered`, `LochlainnMcKenna.FoundRaluca` and `GlobalInventory.Morels`.
+
 **Header**
 
 | Offset | Type | Meaning |
 |---|---|---|
-| 0 | int32 | Save version (151 or 153) |
+| 0 | int32 | Save version (151, 153 or 164) |
 | 4 | int32 | Scene/area index (e.g. 2 = Meridian Market) |
 | 8 | float | Playtime in seconds |
 | 12 | int32 | Unix timestamp of the save |
