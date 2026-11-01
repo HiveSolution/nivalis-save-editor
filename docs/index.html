@@ -9,217 +9,302 @@
   <meta property="og:description" content="A small savegame editor for Nivalis Nights. Edit money, items, skills, relationships and venues, with automatic backups.">
   <meta property="og:image" content="https://hivesolution.github.io/nivalis-save-editor/screenshots/overview.png">
   <meta property="og:url" content="https://hivesolution.github.io/nivalis-save-editor/">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0614">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <style>
-    @font-face { font-family: "Inter Variable"; src: url(fonts/inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
-    @font-face { font-family: "Fira Code Variable"; src: url(fonts/fira-code-latin-wght-normal.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
+    @font-face { font-family: "Audiowide"; src: url(fonts/audiowide-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+    @font-face { font-family: "Mr Dafoe"; src: url(fonts/mr-dafoe-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+    @font-face { font-family: "VT323"; src: url(fonts/vt323-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+    @font-face { font-family: "Chakra Petch"; src: url(fonts/chakra-petch-latin-400-normal.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+    @font-face { font-family: "Chakra Petch"; src: url(fonts/chakra-petch-latin-600-normal.woff2) format("woff2"); font-weight: 600; font-display: swap; }
 
     :root {
-      --background: #FFF9F5; --foreground: #120D0B; --card: #FFFFFF;
-      --primary: #D08456; --primary-foreground: #3C1D0D;
-      --muted: #FAF2EE; --muted-foreground: #5D5653; --accent: #FEF5EE;
-      --border: #ECE5E0; --input: #7B7471; --ring: #B56B3E; --link: #96542D;
-      --warning-subtle: #FDF6E8; --warning-subtle-foreground: #6D4B01; --warning-subtle-border: #F3D9A4;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --background: #120D0B; --foreground: #FFF9F5; --card: #201A18;
-        --muted: #2F2926; --muted-foreground: #AAA39F; --accent: #2F2926;
-        --border: #2F2926; --ring: #E29E74; --link: #E29E74;
-        --warning-subtle: #362200; --warning-subtle-foreground: #F3D9A4; --warning-subtle-border: #6D4B01;
-      }
+      --void: #0a0614; --night: #120a24; --panel: #170e2e; --line: #3a2a63;
+      --text: #f1ecff; --dim: #b3a9d4;
+      --pink: #ff4fd8; --cyan: #3ad7ff; --sun: #ffc24b; --violet: #8a5cff; --ok: #5dffb0;
+      --cut: 14px;
+      --cut-shape: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
     }
 
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-    body { margin: 0; background: var(--background); color: var(--foreground); font: 400 16px/1.6 "Inter Variable", ui-sans-serif, system-ui, sans-serif; }
-    h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.25; }
-    h1 { font-size: 30px; letter-spacing: -0.025em; }
-    h2 { font-size: 24px; letter-spacing: -0.025em; }
-    h3 { font-size: 18px; }
-    p { margin: 0; }
-    a { color: var(--link); text-underline-offset: 2px; }
+    html { scroll-behavior: smooth; background: var(--void); }
+    body { margin: 0; color: var(--text); font: 400 17px/1.6 "Chakra Petch", ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
+    h1, h2, h3, p, ol, ul, dl, dd { margin: 0; padding: 0; }
+    ol, ul { list-style: none; }
+    a { color: var(--cyan); text-underline-offset: 3px; }
+    a:hover { color: var(--pink); }
     img { display: block; max-width: 100%; height: auto; }
-    code { font: 400 14px/1.5 "Fira Code Variable", ui-monospace, "Cascadia Code", Consolas, monospace; font-variant-ligatures: none; }
-    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
-    .icon { width: 1.25rem; height: 1.25rem; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    :focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; clip-path: none !important; }
+    .skip { position: absolute; left: -999px; z-index: 10; }
+    .skip:focus { left: 16px; top: 8px; background: var(--void); padding: 4px 10px; }
+    .term { font-family: "VT323", ui-monospace, Consolas, monospace; letter-spacing: 0.02em; }
+    .wrap { width: min(1080px, 100% - 40px); margin-inline: auto; }
 
-    .skip { position: absolute; left: -999px; }
-    .skip:focus { left: 16px; top: 8px; background: var(--card); padding: 4px 8px; }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    /* ---- top bar ---- */
+    .hud { position: absolute; inset: 0 0 auto; z-index: 3; }
+    .hud .wrap { display: flex; align-items: center; justify-content: space-between; gap: 8px 20px; flex-wrap: wrap; padding: 14px 0; font-size: 21px; }
+    .hud-brand { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; }
+    .hud nav { display: flex; gap: 22px; }
+    .hud nav a { color: var(--text); text-decoration: none; }
+    .hud nav a:hover { color: var(--cyan); }
+    .hud nav a::before { content: "> "; color: var(--pink); }
 
-    .site { border-bottom: 1px solid var(--border); }
-    .site .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; flex-wrap: wrap; }
-    .brand { display: flex; align-items: center; gap: 10px; color: inherit; font-weight: 600; text-decoration: none; }
-    .site nav { display: flex; gap: 20px; font-size: 14px; font-weight: 500; }
-    .site nav a { color: var(--muted-foreground); text-decoration: none; }
-    .site nav a:hover { color: var(--foreground); }
+    /* ---- hero: sunset, skyline, grid ---- */
+    .hero { --horizon: 60%; position: relative; display: grid; grid-template-rows: var(--horizon) 1fr; justify-items: center; height: clamp(760px, 100svh, 980px); padding: 0 20px; overflow: hidden; text-align: center; isolation: isolate; }
+    .hero-top { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 74px 0 34px; }
+    .sky { position: absolute; inset: 0; z-index: -1; background: linear-gradient(#0a0614 0%, #1c0b3f 26%, #4a1272 44%, #b01f86 56%, #ff5a7e var(--horizon)); }
+    .stars { position: absolute; inset: 0 0 45%; background-image:
+      radial-gradient(1.5px 1.5px at 8% 22%, #fff, transparent), radial-gradient(1px 1px at 18% 58%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 29% 12%, #9fe9ff, transparent), radial-gradient(1px 1px at 37% 40%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 62% 18%, #ffd0f4, transparent), radial-gradient(1px 1px at 71% 49%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 83% 9%, #fff, transparent), radial-gradient(1px 1px at 91% 36%, #9fe9ff, transparent),
+      radial-gradient(1px 1px at 48% 7%, #fff, transparent), radial-gradient(1.5px 1.5px at 96% 62%, #fff, transparent); }
+    .sun { position: absolute; left: 50%; top: var(--horizon); width: clamp(280px, 38vw, 500px); aspect-ratio: 1; transform: translate(-50%, -80%); border-radius: 50%;
+      background: linear-gradient(#ffe66b 8%, #ffb347 38%, #ff5f8f 66%, #e8279c 92%);
+      box-shadow: 0 0 90px 24px rgba(255, 95, 143, .45);
+      -webkit-mask: linear-gradient(#000 34%, transparent 34% 35.5%, #000 35.5% 43%, transparent 43% 45.5%, #000 45.5% 52%, transparent 52% 55.5%, #000 55.5% 61%, transparent 61% 65.5%, #000 65.5% 70%, transparent 70% 76%, #000 76%);
+      mask: linear-gradient(#000 34%, transparent 34% 35.5%, #000 35.5% 43%, transparent 43% 45.5%, #000 45.5% 52%, transparent 52% 55.5%, #000 55.5% 61%, transparent 61% 65.5%, #000 65.5% 70%, transparent 70% 76%, #000 76%); }
+    .city { position: absolute; left: 0; right: 0; bottom: calc(100% - var(--horizon)); width: 100%; height: clamp(150px, 24vh, 240px); }
+    .floor { position: absolute; inset: var(--horizon) 0 0; overflow: hidden; background: linear-gradient(#2a0a47, var(--void) 92%); perspective: 300px; perspective-origin: 50% 0; border-top: 2px solid #ff8fe6; box-shadow: 0 -2px 22px #ff4fd8; }
+    .grid { position: absolute; left: -70%; right: -70%; top: 0; height: 296px; transform-origin: 50% 0; transform: rotateX(78deg);
+      background-image: linear-gradient(90deg, rgba(58, 215, 255, .8) 3px, transparent 3px), linear-gradient(rgba(255, 79, 216, .9) 3px, transparent 3px);
+      background-size: 56px 28px; animation: drive 1.6s linear infinite; }
+    .floor::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 45%, var(--void) 94%); }
+    @keyframes drive { to { background-position: 0 28px; } }
 
-    section { padding: 56px 0; }
-    section + section { border-top: 1px solid var(--border); }
-    .intro { max-width: 65ch; margin-top: 8px; color: var(--muted-foreground); }
+    .logo { position: relative; margin-top: clamp(10px, 2.4vh, 26px); font-weight: 400; line-height: 1; transform: skewX(-7deg); }
+    .chrome { display: block; font: 400 clamp(54px, 15.5vw, 136px)/1 "Audiowide", sans-serif; text-transform: uppercase; letter-spacing: .02em;
+      background: linear-gradient(#ffffff 8%, #a8efff 34%, #1b7fd4 50%, #0d1b4c 51%, #ff9be9 56%, #ffffff 72%, #ffe1f8 92%); -webkit-background-clip: text; background-clip: text; color: transparent;
+      -webkit-text-stroke: 1px rgba(255, 255, 255, .6); filter: drop-shadow(2px 0 0 #170533) drop-shadow(-2px 0 0 #170533) drop-shadow(0 2px 0 #170533) drop-shadow(0 -2px 0 #170533) drop-shadow(0 5px 0 #2a0a55) drop-shadow(0 0 20px rgba(58, 215, 255, .55)); }
+    .script { display: block; margin-top: -.52em; font: 400 clamp(46px, 9.4vw, 104px)/1.1 "Mr Dafoe", cursive; color: #fff; transform: rotate(-4deg);
+      text-shadow: 0 0 4px #fff, 0 0 14px var(--pink), 0 0 34px var(--pink), 0 3px 0 #a3128a; animation: strike 1.6s steps(1) 1; }
+    @keyframes strike { 0%, 30% { opacity: .35; text-shadow: none; } 15%, 60% { opacity: 1; } }
+    .hero-text { max-width: 680px; margin-top: 12px; padding: 14px 44px 18px; background: radial-gradient(closest-side, rgba(10, 6, 20, .9) 62%, rgba(10, 6, 20, 0)); }
+    .hero-text > p:first-child { font-weight: 600; text-shadow: 0 2px 8px #0a0614, 0 0 2px #0a0614; }
+    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 20px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 54px; padding: 10px 26px; font: 400 17px/1.2 "Audiowide", sans-serif; text-decoration: none; clip-path: var(--cut-shape); transition: transform .12s; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-hot { background: linear-gradient(100deg, var(--pink), #ff8a5c 70%, var(--sun)); color: #1a0420; }
+    .btn-hot:hover { color: #1a0420; }
+    .btn-cold { background: var(--cyan); color: #04202c; }
+    .btn-cold:hover { color: #04202c; }
+    .latest { margin-top: 14px; font-size: 21px; }
+    .latest a { color: var(--cyan); }
 
-    .hero { display: grid; grid-template-columns: 5fr 6fr; gap: 48px; align-items: center; }
-    .hero .lead { margin-top: 12px; color: var(--muted-foreground); }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
-    .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 18px; border-radius: 8px; font-weight: 500; text-decoration: none; }
-    .btn-primary { background: var(--primary); color: var(--primary-foreground); }
-    .btn-primary:hover { filter: brightness(1.08); }
-    .btn-outline { border: 1px solid var(--input); color: var(--foreground); }
-    .btn-outline:hover { background: var(--accent); }
-    .latest { margin-top: 16px; font-size: 14px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-    .shot { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    /* ---- section headings ---- */
+    section.band { padding: 76px 0; background: var(--void); }
+    section.band + section.band { border-top: 1px solid var(--line); }
+    h2 { font: 400 clamp(38px, 6vw, 56px)/1.1 "Mr Dafoe", cursive; color: #fff; transform: rotate(-2deg); transform-origin: 0 100%; text-shadow: 0 0 12px var(--pink), 0 0 30px rgba(255, 79, 216, .7); }
+    h2.cold { text-shadow: 0 0 12px var(--cyan), 0 0 30px rgba(58, 215, 255, .7); }
+    .intro { max-width: 62ch; margin-top: 16px; color: var(--dim); }
 
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0 0; padding: 0; list-style: none; }
-    .features li { padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
-    .features h3 { margin-bottom: 4px; }
-    .features p { font-size: 14px; color: var(--muted-foreground); }
+    /* ---- CRT with the screenshots ---- */
+    .tv-band { position: relative; z-index: 2; margin-top: -56px; padding-bottom: 76px; background: linear-gradient(transparent 56px, var(--void) 56px); }
+    .tv { padding: clamp(10px, 2.4vw, 26px); background: linear-gradient(160deg, #2b2340, #15101f 60%); border-radius: 26px; box-shadow: 0 0 0 2px #000, 0 0 0 3px var(--line), 0 26px 60px rgba(255, 79, 216, .28), 0 -8px 50px rgba(58, 215, 255, .18); }
+    .glass { position: relative; display: block; overflow: hidden; border-radius: 22px / 26px; background: #000; }
+    .glass img { width: 100%; }
+    .glass::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+      background: repeating-linear-gradient(transparent 0 2px, rgba(0, 0, 0, .2) 2px 3px), radial-gradient(ellipse at 50% 45%, transparent 62%, rgba(0, 0, 0, .55)), linear-gradient(115deg, rgba(255, 255, 255, .07), transparent 32%); }
+    .channels { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 21px; color: var(--dim); }
+    .channels .led { width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .channels button { padding: 3px 12px; border: 1px solid var(--line); background: none; color: var(--text); font: inherit; cursor: pointer; }
+    .channels button:hover { border-color: var(--cyan); color: var(--cyan); }
+    .channels button[aria-pressed="true"] { background: var(--cyan); border-color: var(--cyan); color: #04202c; }
+    .caption { margin-top: 14px; color: var(--dim); }
 
-    .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 24px 0 0; }
-    .gallery figure { margin: 0; }
-    .gallery figcaption { margin-top: 8px; font-size: 14px; color: var(--muted-foreground); }
+    /* ---- high score table ---- */
+    .scores { margin-top: 30px; font-size: 25px; line-height: 1.15; }
+    .scores li { display: grid; grid-template-columns: 2.4ch auto 1fr auto; column-gap: 12px; padding: 12px 8px; align-items: baseline; }
+    .scores li:hover { background: linear-gradient(90deg, rgba(255, 79, 216, .14), transparent); }
+    .scores .no { color: var(--dim); }
+    .scores .name { text-transform: uppercase; color: var(--cyan); }
+    .scores li:nth-child(even) .name { color: var(--pink); }
+    .scores .dots { align-self: end; margin-bottom: 7px; border-bottom: 3px dotted var(--line); }
+    .scores .val { text-transform: uppercase; color: var(--sun); text-align: right; }
+    .scores .desc { grid-column: 2 / -1; margin-top: 4px; font: 400 16px/1.45 "Chakra Petch", sans-serif; color: var(--dim); }
 
-    .steps { display: grid; grid-template-columns: 3fr 2fr; gap: 40px; margin-top: 24px; }
-    .steps h3 + p { margin-top: 12px; }
-    .steps ol { margin: 12px 0 0; padding-left: 20px; }
-    .steps li + li { margin-top: 6px; }
-    .steps .note { margin-top: 12px; font-size: 14px; color: var(--muted-foreground); }
-    pre { margin: 12px 0 0; padding: 12px; overflow-x: auto; background: var(--muted); border-radius: 8px; }
+    /* ---- terminals ---- */
+    .terms { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 30px; }
+    .terminal { position: relative; isolation: isolate; padding: 1px; background: linear-gradient(135deg, var(--cyan), var(--pink)); clip-path: var(--cut-shape); }
+    .terminal::before { content: ""; position: absolute; inset: 1px; z-index: -1; background: var(--night); clip-path: var(--cut-shape); }
+    .bar { display: flex; justify-content: space-between; padding: 8px 18px 6px 26px; font-size: 20px; color: #fff; border-bottom: 1px solid var(--line); }
+    .screen { padding: 16px 20px 22px; }
+    .steps { counter-reset: s; font-size: 22px; line-height: 1.3; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 3ch 1fr; gap: 8px; }
+    .steps li + li { margin-top: 10px; }
+    .steps li::before { content: counter(s) ">"; color: var(--pink); }
+    .steps b { font-weight: 400; color: var(--cyan); }
+    .fine { margin-top: 14px; font-size: 15px; color: var(--dim); }
+    pre { margin: 12px 0 0; padding: 0; font: inherit; font-size: 19px; line-height: 1.3; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ok); }
+    .cursor::after { content: "█"; margin-left: 2px; color: var(--ok); animation: blink 1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
 
-    .alert { display: flex; gap: 12px; max-width: 75ch; margin-top: 24px; padding: 16px; background: var(--warning-subtle); color: var(--warning-subtle-foreground); border: 1px solid var(--warning-subtle-border); border-radius: 8px; }
-    .alert .icon { margin-top: 2px; }
-    .checks { max-width: 75ch; margin: 24px 0 0; padding: 0; list-style: none; }
-    .checks li { display: flex; gap: 12px; }
-    .checks li + li { margin-top: 12px; }
-    .checks .icon { margin-top: 2px; color: var(--link); }
-    .hashes { margin: 8px 0 0; font-size: 14px; }
-    .hashes dt { font-weight: 500; }
-    .hashes dd { margin: 0 0 8px; }
-    .hashes code { font-size: 12px; overflow-wrap: anywhere; }
+    /* ---- safety ---- */
+    .tape { height: 14px; margin-top: 28px; background: repeating-linear-gradient(-45deg, var(--sun) 0 18px, #0a0614 18px 36px); }
+    .warn { padding: 20px 22px; background: #221703; border: solid var(--sun); border-width: 0 2px 2px; color: #ffe9bd; }
+    .warn strong { display: block; margin-bottom: 4px; font: 400 26px/1.1 "VT323", monospace; text-transform: uppercase; color: var(--sun); }
+    .checks { margin-top: 28px; }
+    .checks li { display: grid; grid-template-columns: 11ch 1fr; gap: 14px; align-items: baseline; }
+    .checks li + li { margin-top: 16px; }
+    .checks .tag { font-size: 22px; line-height: 1.2; color: var(--ok); }
+    .hashes { margin-top: 10px; }
+    .hashes dt { color: var(--dim); font-size: 15px; }
+    .hashes dd { margin-bottom: 8px; font-size: 18px; line-height: 1.2; overflow-wrap: anywhere; color: var(--sun); }
 
-    footer { border-top: 1px solid var(--border); padding: 24px 0 40px; font-size: 14px; color: var(--muted-foreground); }
+    /* ---- footer ---- */
+    footer { padding: 26px 0 34px; border-top: 2px solid var(--pink); box-shadow: 0 -2px 18px rgba(255, 79, 216, .6); background: var(--night); font-size: 15px; color: var(--dim); }
     footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; }
-    footer a { color: var(--link); }
 
-    @media (max-width: 860px) {
-      section { padding: 40px 0; }
-      .hero, .steps { grid-template-columns: 1fr; gap: 32px; }
-      .features { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 800px) {
+      .terms { grid-template-columns: 1fr; }
+      section.band { padding: 56px 0; }
     }
     @media (max-width: 560px) {
-      .features, .gallery { grid-template-columns: 1fr; }
-      .btn { width: 100%; justify-content: center; }
+      .hero { --horizon: 50%; height: clamp(880px, 100svh, 920px); }
+      .hero-text { padding-inline: 8px; }
+      .hud nav { gap: 14px; }
+      .btn { width: 100%; }
+      .scores { font-size: 22px; }
+      .scores li { grid-template-columns: 2.4ch 1fr; }
+      .scores .dots { display: none; }
+      .scores .val { grid-column: 2; text-align: left; }
+      .scores .desc { grid-column: 2; }
+      .checks li { grid-template-columns: 1fr; gap: 2px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .grid, .script, .cursor::after { animation: none; }
+      .btn { transition: none; }
     }
   </style>
 </head>
 <body>
-  <svg style="display:none" aria-hidden="true">
-    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
-    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
-    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></symbol>
-  </svg>
-
   <a class="skip" href="#main">Skip to content</a>
 
-  <header class="site">
-    <div class="wrap">
-      <a class="brand" href="#main"><img src="icon.svg" alt="" width="28" height="28">Nivalis Save Editor</a>
+  <header class="hud">
+    <div class="wrap term">
+      <a class="hud-brand" href="#main"><img src="icon.svg" alt="" width="28" height="28">NIVALIS SAVE EDITOR</a>
       <nav aria-label="Page">
         <a href="#start">Get started</a>
         <a href="#safety">Is it safe?</a>
-        <a href="https://github.com/HiveSolution/nivalis-save-editor">Source code</a>
+        <a href="https://github.com/HiveSolution/nivalis-save-editor">Source</a>
       </nav>
     </div>
   </header>
 
   <main id="main">
-    <section>
-      <div class="wrap hero">
-        <div>
-          <h1>Change your Nivalis Nights save, safely.</h1>
-          <p class="lead">A small savegame editor for your money, items, skills, relationships and venues. It backs up your save before every change.</p>
-          <div class="actions">
-            <a class="btn btn-primary" href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest/download/NivalisSaveEditor-Windows.zip">
-              <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Download for Windows
-            </a>
-            <a class="btn btn-outline" href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest/download/NivalisSaveEditor-Linux-x86_64.AppImage">
-              <svg class="icon" aria-hidden="true"><use href="#i-terminal"/></svg>Linux AppImage
-            </a>
-          </div>
-          <p class="latest" id="latest">No installer needed. <a href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest">See what's new</a></p>
+    <section class="hero">
+      <div class="sky" aria-hidden="true">
+        <div class="stars"></div>
+        <div class="sun"></div>
+        <svg class="city" viewBox="0 0 1600 280" preserveAspectRatio="xMidYMax slice" focusable="false">
+          <defs>
+            <pattern id="lit" width="132" height="96" patternUnits="userSpaceOnUse">
+              <rect x="7" y="9" width="4" height="6" fill="#ff4fd8"/><rect x="43" y="4" width="4" height="6" fill="#3ad7ff"/>
+              <rect x="88" y="16" width="4" height="6" fill="#ffc24b"/><rect x="118" y="38" width="4" height="6" fill="#ff4fd8" opacity=".7"/>
+              <rect x="24" y="44" width="4" height="6" fill="#ffc24b" opacity=".8"/><rect x="66" y="52" width="4" height="6" fill="#3ad7ff" opacity=".7"/>
+              <rect x="101" y="73" width="4" height="6" fill="#3ad7ff"/><rect x="12" y="81" width="4" height="6" fill="#ff4fd8" opacity=".6"/>
+              <rect x="50" y="86" width="4" height="6" fill="#ffc24b"/>
+            </pattern>
+          </defs>
+          <path fill="#55188a" d="M0 280V117H16V83h2V117H34V111H55V77h2V111H78V199H113V165h2V199H149V181L217 197V212H280V231L344 247V201H409V240H484V247H531V236H601V254L677 270V250H691V236H710V250H724V255H743V241H768V255H787V251H853V248H870V234H893V248H910V239H962V257H982V223h2V257H1003V252H1066V231H1079V217H1097V231H1110V245H1131V211h2V245H1154V193H1188V159h2V193H1223V210H1235V196H1250V210H1262V201H1276V187H1293V201H1307V195H1324V161h2V195H1342V196H1368V162h2V196H1395V175H1463V188H1482V174H1508V188H1527V140H1544V126H1566V140H1582V63H1609V29h2V63H1638V280Z"/>
+          <path fill="#0d0620" stroke="#ff4fd8" stroke-opacity=".55" d="M0 280V41H42V127H110V212H145V91H179V89H231V159H248V145H270V159H287V194H333V230H365V196h2V230H399V200H439V174L496 190V228H530V194h2V228H565V232H629V220H696V267H716V253H743V267H763V263H783V249H810V263H830V244H856V233L907 249V234H947V258H1017V248H1028V234H1042V248H1052V243H1067V209h2V243H1083V258H1136V190H1202V187L1238 203V152L1278 168V124H1299V110H1326V124H1347V140H1364V126H1387V140H1404V55H1435V21h2V55H1468V25H1488V11H1515V25H1535V130H1553V116H1577V130H1595V149H1646V280Z"/>
+          <path fill="url(#lit)" d="M0 280V41H42V127H110V212H145V91H179V89H231V159H248V145H270V159H287V194H333V230H365V196h2V230H399V200H439V174L496 190V228H530V194h2V228H565V232H629V220H696V267H716V253H743V267H763V263H783V249H810V263H830V244H856V233L907 249V234H947V258H1017V248H1028V234H1042V248H1052V243H1067V209h2V243H1083V258H1136V190H1202V187L1238 203V152L1278 168V124H1299V110H1326V124H1347V140H1364V126H1387V140H1404V55H1435V21h2V55H1468V25H1488V11H1515V25H1535V130H1553V116H1577V130H1595V149H1646V280Z"/>
+        </svg>
+        <div class="floor"><div class="grid"></div></div>
+      </div>
+
+      <div class="hero-top">
+        <h1 class="logo"><span class="chrome">Nivalis</span> <span class="script">Save Editor</span></h1>
+      </div>
+      <div class="hero-text">
+        <p>The savegame editor for Nivalis Nights. Rewrite your money, items, skills, relationships and venues, with a backup before every change.</p>
+        <div class="actions">
+          <a class="btn btn-hot" href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest/download/NivalisSaveEditor-Windows.zip">Download for Windows</a>
+          <a class="btn btn-cold" href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest/download/NivalisSaveEditor-Linux-x86_64.AppImage">Linux AppImage</a>
         </div>
-        <a class="shot" href="screenshots/overview.png"><img src="screenshots/overview.png" width="1296" height="859" alt="The editor's overview screen, with a list of saves on the left and the money and debt of the selected save on the right."></a>
+        <p class="latest term" id="latest">No installer needed. <a href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest">See what's new</a></p>
       </div>
     </section>
 
-    <section>
+    <section class="tv-band">
+      <div class="wrap">
+        <div class="tv">
+          <a class="glass" id="tv-link" href="screenshots/overview.png"><img id="tv-image" src="screenshots/overview.png" width="1296" height="859" alt="The Overview tab, with a list of saves on the left and the money and debt of the selected save on the right."></a>
+          <div class="channels term">
+            <span class="led" aria-hidden="true"></span>
+            <button type="button" aria-pressed="true" data-shot="overview" data-caption="Your save at a glance: location, playtime, money and debt." data-alt="The Overview tab, with a list of saves on the left and the money and debt of the selected save on the right.">CH1 OVERVIEW</button>
+            <button type="button" aria-pressed="false" data-shot="inventory" data-caption="Add any item, and change quantities and freshness." data-alt="The Inventory tab with a list of items, quantities and freshness, and two newly added items highlighted.">CH2 INVENTORY</button>
+            <button type="button" aria-pressed="false" data-shot="people" data-caption="Relationship levels for everyone you've met." data-alt="The People tab with friendship, romance, business and enemy levels per person.">CH3 PEOPLE</button>
+            <button type="button" aria-pressed="false" data-shot="venues" data-caption="Venue level, customers served and review stars." data-alt="The Venues tab with two owned venues, their levels, customers served and reviews.">CH4 VENUES</button>
+            <button type="button" aria-pressed="false" data-shot="backups" data-caption="See what changed since a backup, and restore it in one click." data-alt="The Backups tab with a backup and the changes made since it.">CH5 BACKUPS</button>
+          </div>
+        </div>
+        <p class="caption" id="tv-caption" aria-live="polite">Your save at a glance: location, playtime, money and debt.</p>
+      </div>
+    </section>
+
+    <section class="band">
       <div class="wrap">
         <h2>What you can edit</h2>
-        <ul class="features">
-          <li><h3>Money and debt</h3><p>Set any amount, or add credits with one click.</p></li>
-          <li><h3>Inventory</h3><p>Add any of 1,300+ items to your inventory, storage and fridges, and change quantities and freshness.</p></li>
-          <li><h3>Skills</h3><p>Set the level of every skill you have started.</p></li>
-          <li><h3>People</h3><p>Change friendship, romance, business and enemy levels.</p></li>
-          <li><h3>Venues</h3><p>Change a venue's level, customers served and review stars.</p></li>
-          <li><h3>Story variables</h3><p>Browse and edit 1,800+ game variables, and compare two saves to see what changed.</p></li>
-        </ul>
+        <ol class="scores term">
+          <li><span class="no">01</span><span class="name">Money</span><span class="dots"></span><span class="val">Any amount</span><span class="desc">Set your credits and debt, or add credits with one click.</span></li>
+          <li><span class="no">02</span><span class="name">Inventory</span><span class="dots"></span><span class="val">1,300+ items</span><span class="desc">Your inventory, storage and fridges, with quantities and freshness.</span></li>
+          <li><span class="no">03</span><span class="name">Skills</span><span class="dots"></span><span class="val">Every level</span><span class="desc">Set the level of any skill you have started.</span></li>
+          <li><span class="no">04</span><span class="name">People</span><span class="dots"></span><span class="val">4 bonds</span><span class="desc">Friendship, romance, business and enemy levels.</span></li>
+          <li><span class="no">05</span><span class="name">Venues</span><span class="dots"></span><span class="val">Level + stars</span><span class="desc">A venue's level, customers served and review stars.</span></li>
+          <li><span class="no">06</span><span class="name">Story</span><span class="dots"></span><span class="val">1,800+ variables</span><span class="desc">Browse and edit quest flags, and compare two saves to see what changed.</span></li>
+          <li><span class="no">07</span><span class="name">Backups</span><span class="dots"></span><span class="val">10 per save</span><span class="desc">Made automatically before every edit, and restored in one click.</span></li>
+        </ol>
       </div>
     </section>
 
-    <section>
+    <section class="band" id="start">
       <div class="wrap">
-        <h2>A look inside</h2>
-        <div class="gallery">
-          <figure><a class="shot" style="display:block" href="screenshots/inventory.png"><img src="screenshots/inventory.png" width="1296" height="859" loading="lazy" alt="The Inventory tab with a list of items, quantities and freshness, and two newly added items highlighted."></a><figcaption>Add items, and change quantities and freshness</figcaption></figure>
-          <figure><a class="shot" style="display:block" href="screenshots/backups.png"><img src="screenshots/backups.png" width="1296" height="859" loading="lazy" alt="The Backups tab with a list of backups and a comparison of what changed."></a><figcaption>See what changed, and restore a backup in one click</figcaption></figure>
-        </div>
-      </div>
-    </section>
-
-    <section id="start">
-      <div class="wrap">
-        <h2>Get started</h2>
-        <div class="steps">
-          <div>
-            <h3>Windows</h3>
-            <ol>
-              <li>Download the zip and extract it anywhere.</li>
-              <li>Run <strong>NivalisSaveEditor.exe</strong>. If Windows warns you, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
-              <li>Pick a save, change what you like and click <strong>Save changes</strong>.</li>
-              <li>Load that save in the game.</li>
-            </ol>
-            <p class="note">You can edit manual saves while the game is running. The autosave can only be changed once the game is closed. Needs Windows 10 or 11 with WebView2, which most PCs already have.</p>
+        <h2 class="cold">Get started</h2>
+        <div class="terms">
+          <div class="terminal">
+            <div class="bar term"><span>WINDOWS</span><span>10 / 11</span></div>
+            <div class="screen">
+              <ol class="steps term">
+                <li><span>Download the zip and extract it anywhere.</span></li>
+                <li><span>Run <b>NivalisSaveEditor.exe</b>. If Windows warns you, click <b>More info</b>, then <b>Run anyway</b>.</span></li>
+                <li><span>Pick a save, change what you like and click <b>Save changes</b>.</span></li>
+                <li><span>Load that save in the game.</span></li>
+              </ol>
+              <p class="fine">You can edit manual saves while the game is running. The autosave can only be changed once the game is closed. Needs WebView2, which most PCs already have.</p>
+            </div>
           </div>
-          <div>
-            <h3>Linux</h3>
-            <p>Download the AppImage, then run:</p>
-            <pre><code>chmod +x NivalisSaveEditor-Linux-x86_64.AppImage
-./NivalisSaveEditor-Linux-x86_64.AppImage</code></pre>
-            <p class="note">For 64-bit Linux with the game installed through Steam (Proton).</p>
+          <div class="terminal">
+            <div class="bar term"><span>LINUX</span><span>x86_64</span></div>
+            <div class="screen">
+              <p>Download the AppImage, then run:</p>
+              <pre class="term">$ chmod +x NivalisSaveEditor-Linux-x86_64.AppImage
+$ ./NivalisSaveEditor-Linux-x86_64.AppImage<span class="cursor"></span></pre>
+              <p class="fine">For 64-bit Linux with the game installed through Steam (Proton).</p>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="safety">
+    <section class="band" id="safety">
       <div class="wrap">
         <h2>Is it safe?</h2>
         <p class="intro">Your browser, Windows or your antivirus may warn you about this download. Here's why, and how you can check it yourself.</p>
-        <div class="alert">
-          <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
-          <p><strong>The editor isn't code-signed.</strong> Signing certificates are expensive for a free tool, so Windows can't tell who made it, and security tools are often wary of new programs like this. New versions can also be held for manual review on Nexus Mods for the same kind of reason.</p>
+        <div class="tape" aria-hidden="true"></div>
+        <div class="warn">
+          <strong>The editor isn't code-signed</strong>
+          Signing certificates are expensive for a free tool, so Windows can't tell who made it, and security tools are often wary of new programs like this. New versions can also be held for manual review on Nexus Mods for the same kind of reason.
         </div>
         <ul class="checks">
-          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span><strong>Read the source code.</strong> All of it is <a href="https://github.com/HiveSolution/nivalis-save-editor">public on GitHub</a>.</span></li>
-          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span><strong>It stays on your PC.</strong> The editor makes no network requests, and it only reads and writes your saves and their backups.</span></li>
-          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+          <li><span class="tag term">[ SOURCE ]</span><span>All of the code is <a href="https://github.com/HiveSolution/nivalis-save-editor">public on GitHub</a>, so anyone can read it.</span></li>
+          <li><span class="tag term">[ LOCAL&nbsp; ]</span><span>The editor makes no network requests, and it only reads and writes your saves and their backups.</span></li>
+          <li><span class="tag term">[ VERIFY ]</span>
             <div>
-              <strong>Check the file you downloaded.</strong> Scan it on <a id="virustotal" href="https://www.virustotal.com/">VirusTotal</a>, or compare its SHA-256 fingerprint:
-              <dl class="hashes" id="hashes" hidden></dl>
+              Scan the file on <a id="virustotal" href="https://www.virustotal.com/">VirusTotal</a>, or compare its SHA-256 fingerprint:
+              <dl class="hashes term" id="hashes" hidden></dl>
               <noscript>The fingerprints are on the <a href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest">release page</a>.</noscript>
             </div>
           </li>
@@ -236,14 +321,28 @@
   </footer>
 
   <script>
+    // Channel buttons swap the screenshot on the monitor.
+    const buttons = document.querySelectorAll('[data-shot]');
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        for (const b of buttons) b.setAttribute('aria-pressed', String(b === button));
+        const src = `screenshots/${button.dataset.shot}.png`;
+        const image = document.getElementById('tv-image');
+        image.src = src;
+        image.alt = button.dataset.alt;
+        document.getElementById('tv-link').href = src;
+        document.getElementById('tv-caption').textContent = button.dataset.caption;
+      });
+    }
+
     // Version and fingerprints come from the latest release, so the page needs no edit per release.
     // The download links work without this.
     fetch('https://api.github.com/repos/HiveSolution/nivalis-save-editor/releases/latest')
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((release) => {
-        const date = new Date(release.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const date = new Date(release.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
         const latest = document.getElementById('latest');
-        latest.textContent = `Version ${release.tag_name.replace(/^v/, '')}, ${date}. No installer needed. `;
+        latest.textContent = `VERSION ${release.tag_name.replace(/^v/, '')} // ${date.toUpperCase()} // `;
         const notes = document.createElement('a');
         notes.href = release.html_url;
         notes.textContent = "See what's new";
@@ -256,7 +355,7 @@
           const dt = document.createElement('dt');
           dt.textContent = label;
           const dd = document.createElement('dd');
-          dd.append(Object.assign(document.createElement('code'), { textContent: sha }));
+          dd.textContent = sha;
           hashes.append(dt, dd);
           if (name.endsWith('.zip')) document.getElementById('virustotal').href = `https://www.virustotal.com/gui/file/${sha}`;
         }
