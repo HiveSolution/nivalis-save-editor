@@ -2,6 +2,8 @@
 
 A small desktop editor for **Nivalis Nights** save files (`.sav`), built with Tauri.
 
+**[Download page](https://hivesolution.github.io/nivalis-save-editor/)**
+
 - Browse your saves with their screenshots, location, in-game day and playtime
 - Edit **money**
 - **Skills**: set the level of each skill you have started (Barter, Boat, Cooking, Farming, Fishing, Serving, Managing)
@@ -35,6 +37,8 @@ npm run app:portable  # release binary: src-tauri/target/release/nivalis-save-ed
 npm run app:build     # Windows: NSIS installer; Linux: AppImage
 npm run release       # tests + Windows: portable zip; Linux: AppImage
 ```
+
+The [download page](https://hivesolution.github.io/nivalis-save-editor/) is `docs/index.html`, served by GitHub Pages from `main`. It links to fixed file names, so `npm run release` also writes `NivalisSaveEditor-Windows.zip` and `NivalisSaveEditor-Linux-x86_64.AppImage`. Upload both with every release, next to the versioned files. The page reads the version and fingerprints from the latest release.
 
 The Linux release repacks the AppImage with [appimagetool](https://github.com/AppImage/appimagetool/releases) to add AppStream metadata, the license and the README. Set it up once in `tools/` (git-ignored):
 

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nivalis Save Editor: download the savegame editor for Nivalis Nights</title>
+  <meta name="description" content="A small savegame editor for Nivalis Nights. Edit money, items, skills, relationships and venues, with automatic backups. For Windows and Linux.">
+  <meta property="og:title" content="Nivalis Save Editor">
+  <meta property="og:description" content="A small savegame editor for Nivalis Nights. Edit money, items, skills, relationships and venues, with automatic backups.">
+  <meta property="og:image" content="https://hivesolution.github.io/nivalis-save-editor/screenshots/overview.png">
+  <meta property="og:url" content="https://hivesolution.github.io/nivalis-save-editor/">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    @font-face { font-family: "Inter Variable"; src: url(fonts/inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
+    @font-face { font-family: "Fira Code Variable"; src: url(fonts/fira-code-latin-wght-normal.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
+
+    :root {
+      --background: #FFF9F5; --foreground: #120D0B; --card: #FFFFFF;
+      --primary: #D08456; --primary-foreground: #3C1D0D;
+      --muted: #FAF2EE; --muted-foreground: #5D5653; --accent: #FEF5EE;
+      --border: #ECE5E0; --input: #7B7471; --ring: #B56B3E; --link: #96542D;
+      --warning-subtle: #FDF6E8; --warning-subtle-foreground: #6D4B01; --warning-subtle-border: #F3D9A4;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #120D0B; --foreground: #FFF9F5; --card: #201A18;
+        --muted: #2F2926; --muted-foreground: #AAA39F; --accent: #2F2926;
+        --border: #2F2926; --ring: #E29E74; --link: #E29E74;
+        --warning-subtle: #362200; --warning-subtle-foreground: #F3D9A4; --warning-subtle-border: #6D4B01;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body { margin: 0; background: var(--background); color: var(--foreground); font: 400 16px/1.6 "Inter Variable", ui-sans-serif, system-ui, sans-serif; }
+    h1, h2, h3 { margin: 0; font-weight: 600; line-height: 1.25; }
+    h1 { font-size: 30px; letter-spacing: -0.025em; }
+    h2 { font-size: 24px; letter-spacing: -0.025em; }
+    h3 { font-size: 18px; }
+    p { margin: 0; }
+    a { color: var(--link); text-underline-offset: 2px; }
+    img { display: block; max-width: 100%; height: auto; }
+    code { font: 400 14px/1.5 "Fira Code Variable", ui-monospace, "Cascadia Code", Consolas, monospace; font-variant-ligatures: none; }
+    :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+    .icon { width: 1.25rem; height: 1.25rem; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .skip { position: absolute; left: -999px; }
+    .skip:focus { left: 16px; top: 8px; background: var(--card); padding: 4px 8px; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    .site { border-bottom: 1px solid var(--border); }
+    .site .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; color: inherit; font-weight: 600; text-decoration: none; }
+    .site nav { display: flex; gap: 20px; font-size: 14px; font-weight: 500; }
+    .site nav a { color: var(--muted-foreground); text-decoration: none; }
+    .site nav a:hover { color: var(--foreground); }
+
+    section { padding: 56px 0; }
+    section + section { border-top: 1px solid var(--border); }
+    .intro { max-width: 65ch; margin-top: 8px; color: var(--muted-foreground); }
+
+    .hero { display: grid; grid-template-columns: 5fr 6fr; gap: 48px; align-items: center; }
+    .hero .lead { margin-top: 12px; color: var(--muted-foreground); }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 18px; border-radius: 8px; font-weight: 500; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+    .btn-primary:hover { filter: brightness(1.08); }
+    .btn-outline { border: 1px solid var(--input); color: var(--foreground); }
+    .btn-outline:hover { background: var(--accent); }
+    .latest { margin-top: 16px; font-size: 14px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+    .shot { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0 0; padding: 0; list-style: none; }
+    .features li { padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+    .features h3 { margin-bottom: 4px; }
+    .features p { font-size: 14px; color: var(--muted-foreground); }
+
+    .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 24px 0 0; }
+    .gallery figure { margin: 0; }
+    .gallery figcaption { margin-top: 8px; font-size: 14px; color: var(--muted-foreground); }
+
+    .steps { display: grid; grid-template-columns: 3fr 2fr; gap: 40px; margin-top: 24px; }
+    .steps h3 + p { margin-top: 12px; }
+    .steps ol { margin: 12px 0 0; padding-left: 20px; }
+    .steps li + li { margin-top: 6px; }
+    .steps .note { margin-top: 12px; font-size: 14px; color: var(--muted-foreground); }
+    pre { margin: 12px 0 0; padding: 12px; overflow-x: auto; background: var(--muted); border-radius: 8px; }
+
+    .alert { display: flex; gap: 12px; max-width: 75ch; margin-top: 24px; padding: 16px; background: var(--warning-subtle); color: var(--warning-subtle-foreground); border: 1px solid var(--warning-subtle-border); border-radius: 8px; }
+    .alert .icon { margin-top: 2px; }
+    .checks { max-width: 75ch; margin: 24px 0 0; padding: 0; list-style: none; }
+    .checks li { display: flex; gap: 12px; }
+    .checks li + li { margin-top: 12px; }
+    .checks .icon { margin-top: 2px; color: var(--link); }
+    .hashes { margin: 8px 0 0; font-size: 14px; }
+    .hashes dt { font-weight: 500; }
+    .hashes dd { margin: 0 0 8px; }
+    .hashes code { font-size: 12px; overflow-wrap: anywhere; }
+
+    footer { border-top: 1px solid var(--border); padding: 24px 0 40px; font-size: 14px; color: var(--muted-foreground); }
+    footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; }
+    footer a { color: var(--link); }
+
+    @media (max-width: 860px) {
+      section { padding: 40px 0; }
+      .hero, .steps { grid-template-columns: 1fr; gap: 32px; }
+      .features { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .features, .gallery { grid-template-columns: 1fr; }
+      .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <svg style="display:none" aria-hidden="true">
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></symbol>
+  </svg>
+
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="#main"><img src="icon.svg" alt="" width="28" height="28">Nivalis Save Editor</a>
+      <nav aria-label="Page">
+        <a href="#start">Get started</a>
+        <a href="#safety">Is it safe?</a>
+        <a href="https://github.com/HiveSolution/nivalis-save-editor">Source code</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section>
+      <div class="wrap hero">
+        <div>
+          <h1>Change your Nivalis Nights save, safely.</h1>
+          <p class="lead">A small savegame editor for your money, items, skills, relationships and venues. It backs up your save before every change.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest/download/NivalisSaveEditor-Windows.zip">
+              <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Download for Windows
+            </a>
+            <a class="btn btn-outline" href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest/download/NivalisSaveEditor-Linux-x86_64.AppImage">
+              <svg class="icon" aria-hidden="true"><use href="#i-terminal"/></svg>Linux AppImage
+            </a>
+          </div>
+          <p class="latest" id="latest">No installer needed. <a href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest">See what's new</a></p>
+        </div>
+        <a class="shot" href="screenshots/overview.png"><img src="screenshots/overview.png" width="1296" height="859" alt="The editor's overview screen, with a list of saves on the left and the money and debt of the selected save on the right."></a>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>What you can edit</h2>
+        <ul class="features">
+          <li><h3>Money and debt</h3><p>Set any amount, or add credits with one click.</p></li>
+          <li><h3>Inventory</h3><p>Add any of 1,300+ items to your inventory, storage and fridges, and change quantities and freshness.</p></li>
+          <li><h3>Skills</h3><p>Set the level of every skill you have started.</p></li>
+          <li><h3>People</h3><p>Change friendship, romance, business and enemy levels.</p></li>
+          <li><h3>Venues</h3><p>Change a venue's level, customers served and review stars.</p></li>
+          <li><h3>Story variables</h3><p>Browse and edit 1,800+ game variables, and compare two saves to see what changed.</p></li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>A look inside</h2>
+        <div class="gallery">
+          <figure><a class="shot" style="display:block" href="screenshots/inventory.png"><img src="screenshots/inventory.png" width="1296" height="859" loading="lazy" alt="The Inventory tab with a searchable list of items and their quantities."></a><figcaption>Add items, and change quantities and freshness</figcaption></figure>
+          <figure><a class="shot" style="display:block" href="screenshots/backups.png"><img src="screenshots/backups.png" width="1296" height="859" loading="lazy" alt="The Backups tab with a list of backups and a comparison of what changed."></a><figcaption>See what changed, and restore a backup in one click</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="start">
+      <div class="wrap">
+        <h2>Get started</h2>
+        <div class="steps">
+          <div>
+            <h3>Windows</h3>
+            <ol>
+              <li>Download the zip and extract it anywhere.</li>
+              <li>Run <strong>NivalisSaveEditor.exe</strong>. If Windows warns you, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+              <li>Pick a save, change what you like and click <strong>Save changes</strong>.</li>
+              <li>Load that save in the game.</li>
+            </ol>
+            <p class="note">You can edit manual saves while the game is running. The autosave can only be changed once the game is closed. Needs Windows 10 or 11 with WebView2, which most PCs already have.</p>
+          </div>
+          <div>
+            <h3>Linux</h3>
+            <p>Download the AppImage, then run:</p>
+            <pre><code>chmod +x NivalisSaveEditor-Linux-x86_64.AppImage
+./NivalisSaveEditor-Linux-x86_64.AppImage</code></pre>
+            <p class="note">For 64-bit Linux with the game installed through Steam (Proton).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="safety">
+      <div class="wrap">
+        <h2>Is it safe?</h2>
+        <p class="intro">Your browser, Windows or your antivirus may warn you about this download. Here's why, and how you can check it yourself.</p>
+        <div class="alert">
+          <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+          <p><strong>The editor isn't code-signed.</strong> Signing certificates are expensive for a free tool, so Windows can't tell who made it, and security tools are often wary of new programs like this. New versions can also be held for manual review on Nexus Mods for the same kind of reason.</p>
+        </div>
+        <ul class="checks">
+          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span><strong>Read the source code.</strong> All of it is <a href="https://github.com/HiveSolution/nivalis-save-editor">public on GitHub</a>.</span></li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span><strong>It stays on your PC.</strong> The editor makes no network requests, and it only reads and writes your saves and their backups.</span></li>
+          <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+            <div>
+              <strong>Check the file you downloaded.</strong> Scan it on <a id="virustotal" href="https://www.virustotal.com/">VirusTotal</a>, or compare its SHA-256 fingerprint:
+              <dl class="hashes" id="hashes" hidden></dl>
+              <noscript>The fingerprints are on the <a href="https://github.com/HiveSolution/nivalis-save-editor/releases/latest">release page</a>.</noscript>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>By RenokK. Unofficial, not affiliated with ION LANDS. Source available under <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.</span>
+      <span><a href="https://www.nexusmods.com/nivalisnights/mods/6">Nexus Mods</a> · <a href="https://github.com/HiveSolution/nivalis-save-editor/issues">Report a problem</a></span>
+    </div>
+  </footer>
+
+  <script>
+    // Version and fingerprints come from the latest release, so the page needs no edit per release.
+    // The download links work without this.
+    fetch('https://api.github.com/repos/HiveSolution/nivalis-save-editor/releases/latest')
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((release) => {
+        const date = new Date(release.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const latest = document.getElementById('latest');
+        latest.textContent = `Version ${release.tag_name.replace(/^v/, '')}, ${date}. No installer needed. `;
+        const notes = document.createElement('a');
+        notes.href = release.html_url;
+        notes.textContent = "See what's new";
+        latest.append(notes);
+
+        const hashes = document.getElementById('hashes');
+        for (const [label, name] of [['Windows zip', 'NivalisSaveEditor-Windows.zip'], ['Linux AppImage', 'NivalisSaveEditor-Linux-x86_64.AppImage']]) {
+          const sha = release.assets.find((a) => a.name === name)?.digest?.replace(/^sha256:/, '');
+          if (!sha) continue;
+          const dt = document.createElement('dt');
+          dt.textContent = label;
+          const dd = document.createElement('dd');
+          dd.append(Object.assign(document.createElement('code'), { textContent: sha }));
+          hashes.append(dt, dd);
+          if (name.endsWith('.zip')) document.getElementById('virustotal').href = `https://www.virustotal.com/gui/file/${sha}`;
+        }
+        hashes.hidden = !hashes.children.length;
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

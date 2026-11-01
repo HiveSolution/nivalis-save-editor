@@ -49,7 +49,12 @@ if (process.platform === 'win32') {
   chmodSync(artifact, 0o755);
 }
 
+// The download page links to /releases/latest/download/<name>, so every release needs these version-free copies too.
+const stable = join(root, 'release', 'out', process.platform === 'win32' ? 'NivalisSaveEditor-Windows.zip' : 'NivalisSaveEditor-Linux-x86_64.AppImage');
+copyFileSync(artifact, stable);
+
 const sha256 = createHash('sha256').update(readFileSync(artifact)).digest('hex');
 console.log(`\nRelease ready: ${artifact}`);
+console.log(`Also upload:   ${stable}`);
 console.log(`Size:   ${(statSync(artifact).size / 1024 / 1024).toFixed(2)} MB`);
 console.log(`SHA256: ${sha256}`);
