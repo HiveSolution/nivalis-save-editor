@@ -2,8 +2,8 @@
 // Command-line companion to the editor, mainly for development and verification.
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
 import {
-  parseSave, summarize, listVariables, diffSaves, applyEdits, roundTripCheck, formatCredits, currentGameDay, xpForLevel,
-  findVenue, averageReviewScore,
+  parseSave, summarize, listVariables, diffSaves, applyEdits, roundTripCheck, formatCredits, currentGameDay, xpForLevel, levelForXp,
+  findVenue, averageReviewScore, reviewCount,
 } from '../core/index.js';
 
 const { items: CATALOG, skills: SKILLS, venues: VENUES } = JSON.parse(readFileSync(new URL('../src/data/items.json', import.meta.url), 'utf8'));
@@ -103,8 +103,9 @@ ${c.key} (${c.kind}${c.storage ? `, ${c.storage}` : ''}, ${c.items.length} items
     case 'skills': {
       for (const e of load(args[0]).skills.entries) {
         const steps = SKILLS[e.guid]?.steps;
-        const next = steps && e.level < steps.length - 1 ? `, next level at ${xpForLevel(steps, e.level + 1)}` : ', top level';
-        console.log(`${skillName(e.guid).padEnd(18)} level ${String(shownLevel(e.level)).padEnd(3)} xp ${e.xp}${steps ? next : ''}`);
+        const level = steps ? levelForXp(steps, e.xp) : e.level;
+        const next = steps && level < steps.length - 1 ? `, next level at ${xpForLevel(steps, level + 1)}` : ', top level';
+        console.log(`${skillName(e.guid).padEnd(18)} level ${String(shownLevel(level)).padEnd(3)} xp ${e.xp}${steps ? next : ''}`);
       }
       return 0;
     }
@@ -114,7 +115,7 @@ ${c.key} (${c.kind}${c.storage ? `, ${c.storage}` : ''}, ${c.items.length} items
         const v = findVenue(save, id);
         if (!v) continue;
         const avg = averageReviewScore(v);
-        console.log(`${info.internal.padEnd(52)} level ${v.level}  served ${String(v.mealsServed).padEnd(6)} reviews ${String(v.reviews.length).padEnd(5)} avg ${avg === null ? '-' : avg.toFixed(2)}`);
+        console.log(`${info.internal.padEnd(52)} level ${v.level}  served ${String(v.mealsServed).padEnd(6)} reviews ${String(reviewCount(v)).padEnd(5)} avg ${avg === null ? '-' : avg.toFixed(2)}`);
       }
       return 0;
     }

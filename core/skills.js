@@ -4,8 +4,11 @@
 //   entry    string skillGuid (skill definition id), float32 xp, int32 level
 //
 // XP is cumulative. A skill definition lists the XP each level costs ("steps", index = level), so
-// level N is reached at steps[1] + ... + steps[N]. The game has been seen to store NaN as XP for a
-// skill at its top level; such entries are kept as they are unless edited.
+// level N is reached at steps[1] + ... + steps[N]. The game recalculates the level from the XP when a
+// save loads, so a level stored under an older curve (the Farming rebalance of save version 181) or
+// one that doesn't match the XP is ignored; levelForXp gives the level the game will show. The game
+// has been seen to store NaN as XP for a skill at its top level; such entries are kept as they are
+// unless edited.
 
 import { readInt32, readFloat32, readString, encodeString, indexOf } from './binary.js';
 import { SaveFormatError } from './errors.js';

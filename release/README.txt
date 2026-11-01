@@ -54,9 +54,9 @@ GOOD TO KNOW
     marked, and you get a warning when adding them to normal storage.
   - Steam Cloud syncs your saves, so an edited save replaces the cloud copy.
   - Tested with save format versions 151, 153 (the game patch of 1 October
-    2026) and 164 (the game update of October 2026). After a later game update
-    the editor still opens your saves but warns you that the version is
-    untested; look for an editor update then.
+    2026), 164 (the game update of October 2026) and 181 (update 7, October
+    2026). After a later game update the editor still opens your saves but
+    warns you that the version is untested; look for an editor update then.
     If an update changes the format so much that the editor can't read a
     save, it refuses to open it instead of damaging it.
 

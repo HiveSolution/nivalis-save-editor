@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   parseSave, applyEdits, roundTripCheck, diffSaves, listVariables, summarize,
   UnsupportedEditError, SaveFormatError, formatCredits, currentGameDay, TESTED_VERSIONS, xpForLevel, levelForXp,
-  findVenue, averageReviewScore, VENUE_MAX_LEVEL,
+  findVenue, averageReviewScore, reviewCount, VENUE_MAX_LEVEL,
 } from '../core/index.js';
 import { encodeString, readString } from '../core/binary.js';
 
@@ -158,7 +158,8 @@ for (const file of saveFiles) {
     assert.ok(save.skills.entries.length <= Object.keys(SKILLS).length);
     for (const e of save.skills.entries) {
       assert.ok(SKILLS[e.guid], `skill ${e.guid} is in the catalog`);
-      assert.equal(e.level, levelForXp(SKILLS[e.guid].steps, e.xp), `${SKILLS[e.guid].name} level matches its XP`);
+      // Older saves keep the level of the curve they were written with until the game loads them.
+      if (save.header.version === TESTED_VERSIONS.at(-1)) assert.equal(e.level, levelForXp(SKILLS[e.guid].steps, e.xp), `${SKILLS[e.guid].name} level matches its XP`);
     }
     if (!save.skills.entries.length) return;
     const target = save.skills.entries[save.skills.entries.length - 1];
@@ -197,7 +198,13 @@ for (const file of saveFiles) {
       if (vars.get(`${group}.Owned`) !== true) continue;
       assert.equal(v.level, vars.get(`${group}.Level`), `${group} level`);
       assert.equal(v.mealsServed, vars.get(`${group}.CustomersServed`), `${group} customers served`);
-      assert.equal(v.reviews.length, vars.get(`${group}.ReviewAmount`), `${group} reviews`);
+      assert.equal(reviewCount(v), vars.get(`${group}.ReviewAmount`), `${group} reviews`);
+    }
+    // Totals are running sums; they only match the records while no review has expired from the list.
+    for (const { totals, reviews, id } of venues) {
+      if (!totals || totals.count !== reviews.length) continue;
+      assert.equal(totals.scoreSum, reviews.reduce((n, r) => n + r.score, 0), `${id} score sum`);
+      assert.equal(totals.positive, reviews.filter((r) => r.score >= 3).length, `${id} positive reviews`);
     }
     const target = venues.find((v) => v.reviews.length);
     const edit = { level: target.level === VENUE_MAX_LEVEL ? 1 : VENUE_MAX_LEVEL, mealsServed: target.mealsServed + 1000, reviewScore: 5 };
@@ -205,13 +212,15 @@ for (const file of saveFiles) {
     assert.equal(edited.length, save.bytes.length);
     let changed = 0;
     for (let i = 0; i < edited.length; i++) if (edited[i] !== save.bytes[i]) changed++;
-    assert.ok(changed >= 2 && changed <= 8 + 4 * target.reviews.length, `changed ${changed} bytes`);
+    assert.ok(changed >= 2 && changed <= 16 + 4 * target.reviews.length, `changed ${changed} bytes`);
     const re = parseSave(edited);
     assert.deepEqual(roundTripCheck(re), []);
     const after = findVenue(re, target.id);
     assert.equal(after.level, edit.level);
     assert.equal(after.mealsServed, edit.mealsServed);
     assert.equal(averageReviewScore(after), 5);
+    assert.equal(after.reviews.every((r) => r.score === 5), true);
+    if (after.totals) assert.equal(after.totals.positive, after.totals.count);
     assert.deepEqual(diffSaves(save, re).variables, []);
   });
 }

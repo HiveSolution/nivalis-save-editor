@@ -13,7 +13,7 @@ A small desktop editor for **Nivalis Nights** save files (`.sav`), built with Ta
 
 Saves live in `%USERPROFILE%\AppData\LocalLow\ION LANDS\Nivalis Nights\` on Windows, and in the Proton prefix on Linux: `~/.local/share/Steam/steamapps/compatdata/1488490/pfx/drive_c/users/steamuser/AppData/LocalLow/ION LANDS/Nivalis Nights` (the editor also looks in `~/.steam/steam`, Flatpak Steam and the extra Steam libraries listed in `libraryfolders.vdf`). **Manual saves can be edited while the game is running**: save in the game, edit that save, then load it again. The autosave can only be changed once the game is closed, because the game keeps overwriting it; the editor checks for the running game on both platforms. Steam Cloud syncs this folder, so the edited file becomes the synced version.
 
-Tested with save versions **151**, **153** (the game patch of 1 October 2026) and **164** (the game update of October 2026). Saves of any other version still open if their layout checks out, with a warning in the save view and again before writing; a save whose layout the editor doesn't understand is refused, whatever its version.
+Tested with save versions **151**, **153** (the game patch of 1 October 2026), **164** (the game update of October 2026) and **181** (update 7, October 2026). Saves of any other version still open if their layout checks out, with a warning in the save view and again before writing; a save whose layout the editor doesn't understand is refused, whatever its version.
 
 ## Screenshots
 
@@ -67,7 +67,7 @@ npm run cli -- edit  <save.sav> --venue Venue_NoodleBar.level=5 --venue Venue_No
 | `src/` | Web UI (vanilla JS + Vite) |
 | `src-tauri/` | Rust shell: locate saves, read files, backup + atomic write, game-running check |
 
-## Save format notes (versions 151, 153 and 164)
+## Save format notes (versions 151, 153, 164 and 181)
 
 Reverse-engineered; the game is an IL2CPP Unity build with a custom `BinaryWriter`-style serializer. Little-endian; strings are 7-bit-length-prefixed UTF-8. No compression, encryption or checksum found.
 
@@ -75,11 +75,13 @@ Version 153 has the same layout as 151. A 151 save loaded and re-saved by the pa
 
 Version 164 has the same layout as 153 too. The story variables gain `MicaRain.Gone`, `NoeStalgia.Gone`, `NoeStalgia.CoffeeDelivered`, `LochlainnMcKenna.FoundRaluca` and `GlobalInventory.Morels`.
 
+Version 181 changes the venue reviews (see **Venues**) and gains `DannyDanetti.NeonSaleSpoke` and `Ava.MorningMessageDay`. The Farming curve is rebalanced in the same update: it now has 16 levels and ends at 16,650 XP instead of 15 levels at 7,870 XP. XP is kept, so the game lowers the level when it loads an older save, and refunds greenhouse modules above the new level.
+
 **Header**
 
 | Offset | Type | Meaning |
 |---|---|---|
-| 0 | int32 | Save version (151, 153 or 164) |
+| 0 | int32 | Save version (151, 153, 164 or 181) |
 | 4 | int32 | Scene/area index (e.g. 2 = Meridian Market) |
 | 8 | float | Playtime in seconds |
 | 12 | int32 | Unix timestamp of the save |
@@ -114,7 +116,7 @@ Layout: `int32 count`, then for each entry `string name, int32 type, value`. Int
 
 Freshness is counted in 8-hour units and drops at 00:00, 08:00 and 16:00; 0 means the item doesn't spoil. Inventory edits change the file size, so the editor re-encodes the section and shifts every later Ghost block end offset.
 
-**Skills** (section key `2F00F72D-896A-42F8-92C4-E775FB79970E`). `int32 count`, then per skill `string skillGuid, float xp, int32 level`. A skill gets an entry once the player has gained XP in it. XP is cumulative; each skill definition in the game assets lists the XP every level costs (Boat: 2000, 5000, 10000, …, so level 2 starts at 7000), and the stored level always matches the XP. Stored levels start at 0, while the game shows them starting at 1; the editor and the CLI use the game's numbering. The game has been seen to store `NaN` as the XP of a skill at its top level. The section after it (`55F0A877-…`) holds achievement counters.
+**Skills** (section key `2F00F72D-896A-42F8-92C4-E775FB79970E`). `int32 count`, then per skill `string skillGuid, float xp, int32 level`. A skill gets an entry once the player has gained XP in it. XP is cumulative; each skill definition in the game assets lists the XP every level costs (Boat: 2000, 5000, 10000, …, so level 2 starts at 7000). The game recalculates the level from the XP when a save loads, so only the XP counts; after a curve change the stored level is stale until the game saves again. Stored levels start at 0, while the game shows them starting at 1; the editor and the CLI use the game's numbering. The game has been seen to store `NaN` as the XP of a skill at its top level. The section after it (`55F0A877-…`) holds achievement counters.
 
 **Venues** (`VenueAreaGhost`, one Ghost block per venue). The level, customers served and reviews live here; the `Venue_<name>.Level`, `.CustomersServed`, `.ReviewScore` and `.ReviewAmount` story variables are copies the game rewrites from this record when a save loads (it only does so for some venues, so the copies of NPC-run venues can be stale). Editing only the variables therefore has no effect in the game. The record is the block that contains the venue's GUID and has this shape:
 
@@ -123,9 +125,10 @@ Freshness is counted in 8-hour units and drops at 00:00, 08:00 and 16:00; 0 mean
 | Start | `string tag, int32 end offset, int32, string ghostGuid, 3 bytes, string ghostGuid, int32, byte, 7 floats (position, rotation), byte, float` |
 | Then | `int32 n` + n GUID strings (placed furniture), `int32 n` + n GUID strings (trash), `int32 initial trash count` |
 | Stats | `int32 currentLevel, int32 mealsServed (customers served), int32 totalVisits`, then more venue state |
-| Reviews | later in the block: `int32 count`, then per review `string venueGuid, int32 stars, string mainItem, 5 floats (cleanliness, rain, snow, comfort, service), int32 time, string personGuid, int32 n` + n delivered meals (`string item, int32 price, 2 floats, string mealGhost`), `byte, string override text, byte, int32, int32, int32 n` + n `(string, int32)` |
+| Reviews | later in the block: `int32 count`, then per review (`string venueGuid` up to version 164 only) `int32 stars, string mainItem, 5 floats (cleanliness, rain, snow, comfort, service), int32 time, string personGuid, int32 n` + n delivered meals (`string item, int32 price, 2 floats, string mealGhost`), `byte, string override text, byte, int32, int32, int32 n` + n `(string, int32)` |
+| Review totals | from version 181, right before the review list: `int32 lifetimeCount, int32 lifetimeScoreSum, int32 lifetimePositiveCount, int32 n` + n `(string mainItem, int32 count)`. A review of 3 stars or more counts as positive. |
 
-The review score the game shows is an average over the reviews (weighted by age) and the review count is the number of records, so the editor changes the score by setting every review's stars and leaves the count alone. The game has level-up and level-down checks against customers served and the average review. Levels above 5 have not been seen.
+Up to version 164 the review score the game shows is an average over the reviews (weighted by age) and the review count is the number of records. From version 181 the game drops expired reviews from the list and keeps the running totals, so the totals can cover more reviews than the list holds. The editor recognises both layouts from their shape. It changes the score by setting every review's stars, plus the score sum and positive count of the totals, and leaves the count alone. The game has level-up and level-down checks against customers served and the average review. Levels above 5 have not been seen.
 
 **Item names.** Item GUIDs are the ids of item definitions in the game's asset files. `scripts/build-item-catalog.mjs` extracts names, base prices, freshness and refrigeration flags, plus vendor and venue names and the skill level tables, into `src/data/items.json`:
 

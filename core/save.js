@@ -1,4 +1,4 @@
-// Parser/editor for Nivalis Nights .sav files (tested with save versions 151 and 153).
+// Parser/editor for Nivalis Nights .sav files (tested with save versions 151, 153, 164 and 181).
 //
 // Layout knowledge (reverse-engineered, see README):
 //   header        version, scene, playtime, unix time, in-game seconds, money (cents), GUID list, ..., "END_HEADER"
@@ -20,14 +20,15 @@ import {
 import { SaveFormatError, UnsupportedEditError } from './errors.js';
 import { parseInventory, encodeInventoryBody, validateInventoryItems } from './inventory.js';
 import { parseSkills, SKILLS_KEY } from './skills.js';
-import { findVenue, venueWrites } from './venues.js';
+import { findVenue, venueWrites, averageReviewScore } from './venues.js';
 
 export { SaveFormatError, UnsupportedEditError };
 
 // Versions checked against real saves. 153 (game patch of 2026-10-01) and 164 have the same layout as 151; they
-// only add and drop a few variables. Other versions are still opened: the structural checks in
-// parseSave decide whether the layout is understood, and header.versionTested lets the UI warn.
-export const TESTED_VERSIONS = [151, 153, 164];
+// only add and drop a few variables. 181 also changes the venue reviews (see venues.js). Other versions are still
+// opened: the structural checks in parseSave decide whether the layout is understood, and header.versionTested
+// lets the UI warn.
+export const TESTED_VERSIONS = [151, 153, 164, 181];
 export const INT32_MAX = 2147483647;
 
 export const VARIABLE_TABLES = [
@@ -373,7 +374,8 @@ function verifyEdited(original, bytes, edits) {
     expect('level', edit.level);
     expect('mealsServed', edit.mealsServed);
     if (after.reviews.length !== before.reviews.length
-        || after.reviews.some((r, i) => r.score !== (edit.reviewScore ?? before.reviews[i].score))) {
+        || after.reviews.some((r, i) => r.score !== (edit.reviewScore ?? before.reviews[i].score))
+        || (edit.reviewScore !== undefined && averageReviewScore(after) !== edit.reviewScore)) {
       throw new SaveFormatError(`Venue ${id} reviews did not verify after edit`);
     }
   }

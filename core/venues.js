@@ -13,8 +13,14 @@
 //             string mealGhost), byte, string override text, byte, int32, int32,
 //             int32 n + n (string, int32)
 //
+// Save version 181 changes the reviews (RuntimeReviewsList): a review loses its leading venueGuid and
+// the list follows running totals, because the game now drops expired reviews from the list:
+//   totals    int32 lifetimeCount, int32 lifetimeScoreSum, int32 lifetimePositiveCount,
+//             int32 n + n (string mainItem, int32 count), then the review list
+//
 // "Customers served" in the game is mealsServed; the review score shown is an average over the
-// review records (weighted by age), and the review count is the number of records.
+// review records (weighted by age), and the review count is the number of records. With totals,
+// those two come from the totals instead.
 
 import { readInt32, readString, encodeString, indexOf } from './binary.js';
 import { SaveFormatError } from './errors.js';
@@ -23,6 +29,8 @@ const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Highest venue level seen in real saves; the game's levelling tables are not read.
 export const VENUE_MAX_LEVEL = 5;
 export const REVIEW_MAX_SCORE = 5;
+// Review.Positive, read from the totals of real saves.
+const POSITIVE_REVIEW_SCORE = 3;
 
 // Reads the fixed part of a Ghost block up to the venue stats; null when the block is not shaped like a venue.
 function readVenueHeader(bytes, block) {
@@ -54,16 +62,19 @@ function readVenueHeader(bytes, block) {
   }
 }
 
-// Parses `count` review records of this venue starting at `pos`; throws when they don't fit the grammar.
+// Parses `count` review records starting at `pos`; throws when they don't fit the grammar. Records carry
+// the venue's GUID only in saves without totals, so venueId is null for the others.
 function readReviews(bytes, countOffset, venueId, limit) {
   const count = readInt32(bytes, countOffset);
   let pos = countOffset + 4;
   const reviews = [];
   const checkCount = (n) => { if (n < 0 || n > 1000) throw new SaveFormatError('Implausible list length in review'); };
   for (let r = 0; r < count; r++) {
-    const venue = readString(bytes, pos);
-    if (venue.value !== venueId) throw new SaveFormatError('Review of another venue');
-    pos = venue.end;
+    if (venueId) {
+      const venue = readString(bytes, pos);
+      if (venue.value !== venueId) throw new SaveFormatError('Review of another venue');
+      pos = venue.end;
+    }
     const scoreOffset = pos;
     const score = readInt32(bytes, pos);
     if (score < 0 || score > REVIEW_MAX_SCORE) throw new SaveFormatError(`Implausible review score ${score}`);
@@ -84,7 +95,23 @@ function readReviews(bytes, countOffset, venueId, limit) {
   return reviews;
 }
 
+// The running totals at `at` and the review list behind them; null or a throw when they aren't there.
+function readTotals(bytes, at, limit) {
+  const [count, scoreSum, positive, items] = [0, 4, 8, 12].map((d) => readInt32(bytes, at + d));
+  if (count < 1 || scoreSum < 0 || scoreSum > count * REVIEW_MAX_SCORE || positive < 0 || positive > count || items < 0 || items > 1000) return null;
+  let countOffset = at + 16;
+  for (let i = 0; i < items; i++) {
+    const item = readString(bytes, countOffset);
+    if (!GUID_RE.test(item.value)) return null;
+    countOffset = item.end + 4;
+  }
+  const reviews = readReviews(bytes, countOffset, null, limit);
+  if (!reviews.length || reviews.length > count) return null;
+  return { countOffset, reviews, totals: { count, scoreSum, positive, scoreSumOffset: at + 4, positiveOffset: at + 8 } };
+}
+
 // The review list is the first `int32 count, string venueGuid, ...` run after the stats that parses completely.
+// Saves with totals have no GUID to search for, so those are tried at every offset after the stats.
 function findReviews(bytes, header, block, venueId, marker) {
   for (let at = indexOf(bytes, marker, header.levelOffset + 12); at !== -1 && at < block.end; at = indexOf(bytes, marker, at + 1)) {
     const count = readInt32(bytes, at - 4);
@@ -93,6 +120,14 @@ function findReviews(bytes, header, block, venueId, marker) {
       return { countOffset: at - 4, reviews: readReviews(bytes, at - 4, venueId, block.end) };
     } catch {
       // Another reference to the venue (menu, orders); keep looking.
+    }
+  }
+  for (let at = header.levelOffset + 12; at + 20 <= block.end; at++) {
+    try {
+      const found = readTotals(bytes, at, block.end);
+      if (found) return found;
+    } catch {
+      // Not the totals; keep looking.
     }
   }
   return { countOffset: null, reviews: [] };
@@ -126,7 +161,12 @@ export function findVenue(save, venueId) {
   return { id: venueId, ghost: block.tag, ...header, reviewCountOffset: countOffset, reviews };
 }
 
+export function reviewCount(venue) {
+  return venue.totals?.count ?? venue.reviews.length;
+}
+
 export function averageReviewScore(venue) {
+  if (venue.totals) return venue.totals.scoreSum / venue.totals.count;
   return venue.reviews.length ? venue.reviews.reduce((n, r) => n + r.score, 0) / venue.reviews.length : null;
 }
 
@@ -146,6 +186,10 @@ export function venueWrites(venue, edit) {
     if (!Number.isInteger(reviewScore) || reviewScore < 1 || reviewScore > REVIEW_MAX_SCORE) throw new RangeError(`Review stars must be 1 to ${REVIEW_MAX_SCORE}`);
     if (!venue.reviews.length) throw new RangeError('This venue has no reviews to change yet');
     for (const r of venue.reviews) writes.push([r.scoreOffset, reviewScore]);
+    if (venue.totals) {
+      const { count, scoreSumOffset, positiveOffset } = venue.totals;
+      writes.push([scoreSumOffset, count * reviewScore], [positiveOffset, reviewScore >= POSITIVE_REVIEW_SCORE ? count : 0]);
+    }
   }
   return writes;
 }

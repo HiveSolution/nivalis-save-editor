@@ -2,8 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open, ask, message } from '@tauri-apps/plugin-dialog';
 import {
-  parseSave, summarize, listVariables, diffSaves, applyEdits, formatCredits, currentGameDay, xpForLevel, INT32_MAX, TESTED_VERSIONS,
-  findVenue, averageReviewScore, VENUE_MAX_LEVEL, REVIEW_MAX_SCORE,
+  parseSave, summarize, listVariables, diffSaves, applyEdits, formatCredits, currentGameDay, xpForLevel, levelForXp, INT32_MAX, TESTED_VERSIONS,
+  findVenue, averageReviewScore, reviewCount, VENUE_MAX_LEVEL, REVIEW_MAX_SCORE,
 } from '../core/index.js';
 import { areaName } from './areas.js';
 import {
@@ -630,7 +630,7 @@ function venueFieldsHtml(id) {
     <label class="field"><span>${label}</span>
       <input class="num small ${edit[field] !== undefined ? 'modified' : ''}" type="number" step="1" min="${min}" ${max ? `max="${max}"` : ''}
         data-venue="${id}" data-venue-field="${field}" value="${edit[field] ?? stats[field]}"></label>`;
-  const count = stats.reviews.length;
+  const count = reviewCount(stats);
   const stars = Array.from({ length: REVIEW_MAX_SCORE }, (_, i) => i + 1)
     .map((s) => `<option value="${s}" ${edit.reviewScore === s ? 'selected' : ''}>All ${s} ★</option>`).join('');
   return `
@@ -697,6 +697,8 @@ function financesHtml() {
 }
 
 const shownLevel = (stored) => stored + 1;
+// The level the game will show; it recalculates it from the XP when the save loads.
+const skillLevel = (e) => { const info = skillInfo(e.guid); return info ? levelForXp(info.steps, e.xp) : e.level; };
 const formatXp = (xp) => (Number.isNaN(xp) ? '–' : Math.floor(xp).toLocaleString());
 
 // Skills the save has an entry for. Choosing a level also moves the XP to the start of that level,
@@ -708,8 +710,8 @@ function skillsHtml() {
   const fields = entries.map((e) => {
     const info = skillInfo(e.guid);
     const edit = state.edits.skills.get(e.guid);
-    const { xp, level } = edit ?? e;
-    const top = Math.max(info ? info.steps.length - 1 : 0, e.level);
+    const { xp, level } = edit ?? { xp: e.xp, level: skillLevel(e) };
+    const top = Math.max(info ? info.steps.length - 1 : 0, level);
     const options = Array.from({ length: top + 1 }, (_, l) => `<option value="${l}" ${l === level ? 'selected' : ''}>Level ${shownLevel(l)}</option>`).join('');
     const progress = info && level < info.steps.length - 1
       ? `${formatXp(xp)} / ${xpForLevel(info.steps, level + 1).toLocaleString()} XP`
@@ -728,7 +730,7 @@ function skillsHtml() {
 
 function setSkillLevel(guid, level) {
   const original = state.current.save.skills.entries.find((e) => e.guid === guid);
-  if (level === original.level) state.edits.skills.delete(guid);
+  if (level === skillLevel(original)) state.edits.skills.delete(guid);
   else state.edits.skills.set(guid, { xp: xpForLevel(skillInfo(guid).steps, level), level });
   renderPending();
   renderTab();
